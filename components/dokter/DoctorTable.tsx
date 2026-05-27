@@ -70,7 +70,7 @@ export default function DoctorTable({
     {/* Button */}
     <button
       onClick={onAdd}
-      className="flex items-center gap-2 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm"
+      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
     >
       <Plus size={18} />
       Tambah Dokter
