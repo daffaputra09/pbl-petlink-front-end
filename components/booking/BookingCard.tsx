@@ -31,7 +31,7 @@ export default function BookingCard({ booking }: Props) {
       <div>
         <p className="text-sm font-semibold text-gray-800">{booking.namaPasien}</p>
         <p className="text-xs text-gray-400 mt-0.5">
-          {booking.ras} • {booking.usia}
+          {booking.jenis} • {booking.usia}
         </p>
       </div>
 

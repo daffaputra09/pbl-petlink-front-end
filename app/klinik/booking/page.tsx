@@ -10,6 +10,7 @@ export type BookingStatus = "Terjadwal" | "Selesai" | "Dibatalkan";
 export type Booking = {
   id: string;
   namaPasien: string;
+  namaPemilik: string;
   jenis: string;
   usia: string;
   jamMulai: string;
@@ -19,12 +20,12 @@ export type Booking = {
 };
 
 const DUMMY_BOOKINGS: Booking[] = [
-  { id: "1", namaPasien: "Chiko",    jenis: "Anggora",        usia: "2 Tahun", jamMulai: "08:00", jamSelesai: "10:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "2", namaPasien: "Rocky",    jenis: "Golden Retriever",usia: "4 Tahun", jamMulai: "11:00", jamSelesai: "12:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "3", namaPasien: "Luna",     jenis: "Fuzzy Lop",      usia: "1 Tahun", jamMulai: "16:00", jamSelesai: "18:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "4", namaPasien: "Mango",    jenis: "Bulldog",        usia: "2 Tahun", jamMulai: "19:00", jamSelesai: "20:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "5", namaPasien: "Alamanda", jenis: "Persia",         usia: "1 Tahun", jamMulai: "09:00", jamSelesai: "10:00", tanggal: "2026-04-25", status: "Terjadwal" },
-  { id: "6", namaPasien: "Sica",     jenis: "Hamster",        usia: "1 Tahun", jamMulai: "12:00", jamSelesai: "14:00", tanggal: "2026-04-25", status: "Terjadwal" },
+  { id: "1", namaPasien: "Chiko", namaPemilik: "Atiqah Fathin",    jenis: "Anggora",        usia: "2 Tahun", jamMulai: "08:00", jamSelesai: "10:00", tanggal: "2026-04-24", status: "Terjadwal" },
+  { id: "2", namaPasien: "Rocky", namaPemilik: "Atiqah Fathin",    jenis: "Golden Retriever",usia: "4 Tahun", jamMulai: "11:00", jamSelesai: "12:00", tanggal: "2026-04-24", status: "Terjadwal" },
+  { id: "3", namaPasien: "Luna", namaPemilik: "Atiqah Fathin",     jenis: "Fuzzy Lop",      usia: "1 Tahun", jamMulai: "16:00", jamSelesai: "18:00", tanggal: "2026-04-24", status: "Terjadwal" },
+  { id: "4", namaPasien: "Mango", namaPemilik: "Atiqah Fathin",    jenis: "Bulldog",        usia: "2 Tahun", jamMulai: "19:00", jamSelesai: "20:00", tanggal: "2026-04-24", status: "Terjadwal" },
+  { id: "5", namaPasien: "Alamanda", namaPemilik: "Atiqah Fathin", jenis: "Persia",         usia: "1 Tahun", jamMulai: "09:00", jamSelesai: "10:00", tanggal: "2026-04-25", status: "Terjadwal" },
+  { id: "6", namaPasien: "Sica", namaPemilik: "Atiqah Fathin",     jenis: "Hamster",        usia: "1 Tahun", jamMulai: "12:00", jamSelesai: "14:00", tanggal: "2026-04-25", status: "Terjadwal" },
 ];
 
 type FilterTab = "Semua" | BookingStatus;
@@ -52,9 +53,9 @@ export default function BookingPage() {
   };
 
   const handleEkspor = () => {
-    const headers = ["Nama Pasien", "jenis", "Usia", "Jam Mulai", "Jam Selesai", "Tanggal", "Status"];
+    const headers = ["Nama Pasien", "Nama Pemilik", "jenis", "Usia", "Jam Mulai", "Jam Selesai", "Tanggal", "Status"];
     const rows = bookings.map((b) =>
-      [b.namaPasien, b.jenis, b.usia, b.jamMulai, b.jamSelesai, b.tanggal, b.status].join(",")
+      [b.namaPasien, b.namaPemilik, b.jenis, b.usia, b.jamMulai, b.jamSelesai, b.tanggal, b.status].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });

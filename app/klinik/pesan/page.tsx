@@ -1,8 +1,8 @@
-export default function DashboardPage() {
+export default function ServicePage() {
   return (
     <div>
       <h1 className="mt-5 p-5 text-3xl font-bold">
-        Dashboard Klinik
+        Halaman Pesan
       </h1>
     </div>
   );
