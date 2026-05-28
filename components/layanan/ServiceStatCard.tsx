@@ -1,48 +1,6 @@
 "use client";
 
-import {
-  BriefcaseMedical,
-  CalendarCheck2,
-  TrendingUp,
-} from "lucide-react";
-
-interface Stat {
-  label: string;
-  value: string;
-  badge: string;
-  badgeColor: string;
-  isLarge?: boolean;
-  icon: React.ReactNode;
-  iconBg: string;
-}
-
-const stats: Stat[] = [
-  {
-    label: "TOTAL LAYANAN",
-    value: "24",
-    badge: "+2 bulan",
-    badgeColor: "text-emerald-600 bg-emerald-50",
-    icon: <BriefcaseMedical className="w-5 h-5 text-emerald-600" />,
-    iconBg: "bg-emerald-50",
-  },
-  {
-    label: "BOOKING AKTIF",
-    value: "148",
-    badge: "Trend Tertinggi",
-    badgeColor: "text-white bg-emerald-500",
-    icon: <CalendarCheck2 className="w-5 h-5 text-blue-600" />,
-    iconBg: "bg-blue-50",
-  },
-  {
-    label: "LAYANAN POPULER",
-    value: "Vaksinasi",
-    badge: "Trending",
-    badgeColor: "text-orange-600 bg-orange-50",
-    isLarge: true,
-    icon: <TrendingUp className="w-5 h-5 text-orange-600" />,
-    iconBg: "bg-orange-50",
-  },
-];
+import { stats } from "@/data/layanan";
 
 export default function ServiceStatCard() {
   return (
