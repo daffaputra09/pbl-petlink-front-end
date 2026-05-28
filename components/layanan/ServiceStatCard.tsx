@@ -44,7 +44,7 @@ const stats: Stat[] = [
   },
 ];
 
-export default function StatCards() {
+export default function ServiceStatCard() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
       {stats.map((stat, i) => (

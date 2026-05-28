@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import StatCards from "@/components/layanan/StatCards";
-import ServiceCards from "@/components/layanan/ServiceCards";
+import StatCards from "@/components/layanan/ServiceStatCard";
+import ServiceCards from "@/components/layanan/ServiceCard";
 
 export const metadata: Metadata = {
   title: "PetLink",
