@@ -2,20 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-
-type DoctorStatus = "Bertugas" | "Cuti" | "Operasi";
-
-interface Doctor {
-  id: string;
-  nama: string;
-  email: string;
-  phone: string;
-  spesialisasi: string[];
-  status: DoctorStatus;
-  photo?: string;
-  jadwal: string[];
-  biografi?: string;
-}
+import { Doctor } from "@/types/dokter";
 
 interface DoctorTableProps {
   doctors: Doctor[];

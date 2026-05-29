@@ -2,20 +2,7 @@
 
 import { useRef, useState } from "react";
 import { X, Camera } from "lucide-react";
-
-type DoctorStatus = "Bertugas" | "Cuti" | "Operasi";
-
-interface Doctor {
-  id: string;
-  nama: string;
-  email: string;
-  phone: string;
-  spesialisasi: string[];
-  status: DoctorStatus;
-  photo?: string;
-  jadwal: string[];
-  biografi?: string;
-}
+import { Doctor, DoctorStatus } from "@/types/dokter";
 
 const SPESIALISASI_OPTIONS = [
   "Bedah",
