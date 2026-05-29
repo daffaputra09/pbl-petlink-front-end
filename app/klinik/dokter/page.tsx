@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
 import DoctorStatCards from "@/components/dokter/DoctorStatCard";
 import DoctorTable from "@/components/dokter/DoctorTable";
 import AddDoctorModal from "@/components/dokter/AddDoctorModal";
+import DoctorScheduleTable from "@/components/dokter/DoctorScheduleTable";
 import { Doctor } from "@/types/dokter";
 import { DUMMY_DOCTORS } from "@/data/dokter";
+import { JadwalDokter } from "@/types/jadwal";
+import { DUMMY_JADWAL } from "@/data/jadwal";
 
 export default function DokterPage() {
   const [doctors, setDoctors] = useState<Doctor[]>(DUMMY_DOCTORS);
+  const [jadwal] = useState<JadwalDokter[]>(DUMMY_JADWAL);
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Doctor | null>(null);
 
@@ -62,6 +65,9 @@ export default function DokterPage() {
         onEdit={handleEdit}
         onAdd={handleAdd}
       />
+
+      {/* Tabel ringkasan jadwal dokter */}
+      <DoctorScheduleTable doctors={doctors} jadwal={jadwal} />
 
       {/* tambah dokter modal */}
       <AddDoctorModal
