@@ -1,15 +1,13 @@
-import { Booking } from "@/app/klinik/booking/page";
+import { Booking, BookingStatus } from "@/types/booking";
 
 type Props = {
   booking: Booking;
+  onClick: (booking: Booking) => void;
 };
 
-const statusConfig: Record<
-  Booking["status"],
-  { label: string; className: string }
-> = {
+const statusConfig: Record<BookingStatus, { label: string; className: string }> = {
   Terjadwal: {
-    label: "Scheduled",
+    label: "Terjadwal",
     className: "bg-blue-50 text-blue-600 border border-blue-100",
   },
   Selesai: {
@@ -22,11 +20,14 @@ const statusConfig: Record<
   },
 };
 
-export default function BookingCard({ booking }: Props) {
+export default function BookingCard({ booking, onClick }: Props) {
   const { label, className } = statusConfig[booking.status];
 
   return (
-    <div className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-5 py-4 hover:shadow-sm transition-shadow">
+    <button
+      onClick={() => onClick(booking)}
+      className="w-full text-left flex items-center justify-between bg-white border border-gray-100 rounded-xl px-5 py-4 hover:shadow-md hover:border-emerald-100 transition-all duration-150 cursor-pointer"
+    >
       {/* Left: Pet Info */}
       <div>
         <p className="text-sm font-semibold text-gray-800">{booking.namaPasien}</p>
@@ -43,10 +44,12 @@ export default function BookingCard({ booking }: Props) {
           </p>
           <p className="text-xs text-gray-400">{booking.tanggal}</p>
         </div>
-        <span className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${className}`}>
+        <span
+          className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${className}`}
+        >
           {label}
         </span>
       </div>
-    </div>
+    </button>
   );
 }

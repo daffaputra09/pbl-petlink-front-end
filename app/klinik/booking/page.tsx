@@ -1,61 +1,67 @@
 "use client";
 
 import { useState } from "react";
+import { Download } from "lucide-react";
 import BookingList from "@/components/booking/BookingList";
 import TambahBookingModal from "@/components/booking/TambahBookingModal";
-import { Download } from "lucide-react";
-
-export type BookingStatus = "Terjadwal" | "Selesai" | "Dibatalkan";
-
-export type Booking = {
-  id: string;
-  namaPasien: string;
-  namaPemilik: string;
-  jenis: string;
-  usia: string;
-  jamMulai: string;
-  jamSelesai: string;
-  tanggal: string;
-  status: BookingStatus;
-};
-
-const DUMMY_BOOKINGS: Booking[] = [
-  { id: "1", namaPasien: "Chiko", namaPemilik: "Atiqah Fathin",    jenis: "Anggora",        usia: "2 Tahun", jamMulai: "08:00", jamSelesai: "10:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "2", namaPasien: "Rocky", namaPemilik: "Atiqah Fathin",    jenis: "Golden Retriever",usia: "4 Tahun", jamMulai: "11:00", jamSelesai: "12:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "3", namaPasien: "Luna", namaPemilik: "Atiqah Fathin",     jenis: "Fuzzy Lop",      usia: "1 Tahun", jamMulai: "16:00", jamSelesai: "18:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "4", namaPasien: "Mango", namaPemilik: "Atiqah Fathin",    jenis: "Bulldog",        usia: "2 Tahun", jamMulai: "19:00", jamSelesai: "20:00", tanggal: "2026-04-24", status: "Terjadwal" },
-  { id: "5", namaPasien: "Alamanda", namaPemilik: "Atiqah Fathin", jenis: "Persia",         usia: "1 Tahun", jamMulai: "09:00", jamSelesai: "10:00", tanggal: "2026-04-25", status: "Terjadwal" },
-  { id: "6", namaPasien: "Sica", namaPemilik: "Atiqah Fathin",     jenis: "Hamster",        usia: "1 Tahun", jamMulai: "12:00", jamSelesai: "14:00", tanggal: "2026-04-25", status: "Terjadwal" },
-];
+import DetailBookingModal from "@/components/booking/DetailBookingModal";
+import { Booking, BookingStatus } from "@/types/booking";
+import { DUMMY_BOOKINGS } from "@/data/booking";
 
 type FilterTab = "Semua" | BookingStatus;
 
 export default function BookingPage() {
   const [bookings, setBookings] = useState<Booking[]>(DUMMY_BOOKINGS);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("Semua");
-  const [selectedDate, setSelectedDate] = useState<string>("2026-03-10");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [isTambahOpen, setIsTambahOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const filterTabs: FilterTab[] = ["Semua", "Terjadwal", "Selesai", "Dibatalkan"];
 
   const filteredBookings = bookings.filter((b) => {
     const matchStatus = activeFilter === "Semua" || b.status === activeFilter;
-    return matchStatus;
+    const matchDate = !selectedDate || b.tanggal === selectedDate;
+    return matchStatus && matchDate;
   });
 
   const handleTambahBooking = (newBooking: Omit<Booking, "id">) => {
-    const booking: Booking = {
-      ...newBooking,
-      id: Date.now().toString(),
-    };
+    const booking: Booking = { ...newBooking, id: Date.now().toString() };
     setBookings((prev) => [...prev, booking]);
-    setIsModalOpen(false);
+    setIsTambahOpen(false);
+  };
+
+  const handleUpdateStatus = (id: string, status: BookingStatus) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status } : b))
+    );
+
+    setSelectedBooking((prev) =>
+      prev && prev.id === id ? { ...prev, status } : prev
+    );
+  };
+
+  const handleReschedule = (id: string) => {
+    // TODO: open reschedule form — close detail for now
+    setSelectedBooking(null);
+    alert(`Reschedule booking #${id} — tambahkan form reschedule di sini.`);
+  };
+
+  const handleCancel = (id: string) => {
+    handleUpdateStatus(id, "Dibatalkan");
+    setSelectedBooking(null);
   };
 
   const handleEkspor = () => {
-    const headers = ["Nama Pasien", "Nama Pemilik", "jenis", "Usia", "Jam Mulai", "Jam Selesai", "Tanggal", "Status"];
+    const headers = [
+      "Nama Pasien", "Nama Pemilik", "Kategori", "Jenis", "Usia",
+      "Berat (kg)", "Jenis Kelamin", "Jam Mulai", "Jam Selesai", "Tanggal", "Status",
+    ];
     const rows = bookings.map((b) =>
-      [b.namaPasien, b.namaPemilik, b.jenis, b.usia, b.jamMulai, b.jamSelesai, b.tanggal, b.status].join(",")
+      [
+        b.namaPasien, b.namaPemilik, b.kategori, b.jenis, b.usia,
+        b.beratKg, b.jenisKelamin, b.jamMulai, b.jamSelesai, b.tanggal, b.status,
+      ].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -73,7 +79,9 @@ export default function BookingPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Booking</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Kelola jadwal dan tambahkan janji temu</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Kelola jadwal dan tambahkan janji temu
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -84,7 +92,7 @@ export default function BookingPage() {
             Ekspor File
           </button>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsTambahOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
           >
             + Tambah Booking
@@ -117,17 +125,38 @@ export default function BookingPage() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="text-sm text-gray-700 outline-none bg-transparent"
           />
-          <button className="text-sm text-gray-500 hover:text-gray-700 ml-1">Ubah</button>
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate("")}
+              className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
       {/* Booking List */}
-      <BookingList bookings={filteredBookings} />
+      <BookingList
+        bookings={filteredBookings}
+        onSelectBooking={setSelectedBooking}
+      />
 
-      {/* Modal */}
-      {isModalOpen && (
+      {/* Detail Modal */}
+      {selectedBooking && (
+        <DetailBookingModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onUpdateStatus={handleUpdateStatus}
+          onReschedule={handleReschedule}
+          onCancel={handleCancel}
+        />
+      )}
+
+      {/* Tambah Booking Modal */}
+      {isTambahOpen && (
         <TambahBookingModal
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => setIsTambahOpen(false)}
           onSubmit={handleTambahBooking}
         />
       )}
