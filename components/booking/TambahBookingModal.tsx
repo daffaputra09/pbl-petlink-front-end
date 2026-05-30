@@ -1,176 +1,343 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
-import { Booking, BookingStatus } from "@/app/klinik/booking/page";
+import { X, User, PawPrint, CalendarDays } from "lucide-react";
+import { Booking, BookingStatus, JenisKelamin } from "@/types/booking";
 
 type Props = {
   onClose: () => void;
   onSubmit: (booking: Omit<Booking, "id">) => void;
 };
 
+type FormState = Omit<Booking, "id">;
+
+const INITIAL_FORM: FormState = {
+  namaPasien: "",
+  jenis: "",
+  kategori: "",
+  usia: "",
+  beratKg: 0,
+  jenisKelamin: "Jantan",
+  namaPemilik: "",
+  alamatPemilik: "",
+  emailPemilik: "",
+  telpPemilik: "",
+  jamMulai: "",
+  jamSelesai: "",
+  tanggal: "",
+  status: "Terjadwal",
+};
+
+const KATEGORI_OPTIONS = ["Kucing", "Anjing", "Kelinci", "Hamster", "Burung", "Lainnya"];
+
+// ✅ Didefinisikan di LUAR komponen utama
+const inputClass = (err?: string) =>
+  `w-full border rounded-lg px-3 py-2 text-sm text-gray-700 outline-none transition-colors ${
+    err
+      ? "border-red-300 bg-red-50 focus:border-red-400"
+      : "border-gray-200 bg-white focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+  }`;
+
+function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-3 mt-1">
+      <div className="text-gray-400">{icon}</div>
+      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">{label}</p>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-gray-600 mb-1 block">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+      {error && <p className="mt-1 text-[11px] text-red-500">{error}</p>}
+    </div>
+  );
+}
+
 export default function TambahBookingModal({ onClose, onSubmit }: Props) {
-  const [form, setForm] = useState({
-    namaPasien: "",
-    namaPemilik: "",
-    jenis: "",
-    usia: "",
-    jamMulai: "",
-    jamSelesai: "",
-    tanggal: "",
-    status: "Terjadwal" as BookingStatus,
-  });
+  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "beratKg" ? parseFloat(value) || 0 : value,
+    }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.namaPasien || !form.namaPemilik || !form.tanggal || !form.jamMulai || !form.jamSelesai) return;
+  const validate = (): boolean => {
+    const newErrors: Partial<Record<keyof FormState, string>> = {};
+    if (!form.namaPasien) newErrors.namaPasien = "Wajib diisi";
+    if (!form.kategori) newErrors.kategori = "Wajib dipilih";
+    if (!form.namaPemilik) newErrors.namaPemilik = "Wajib diisi";
+    if (!form.telpPemilik) newErrors.telpPemilik = "Wajib diisi";
+    if (!form.tanggal) newErrors.tanggal = "Wajib diisi";
+    if (!form.jamMulai) newErrors.jamMulai = "Wajib diisi";
+    if (!form.jamSelesai) newErrors.jamSelesai = "Wajib diisi";
+    else if (form.jamMulai && form.jamMulai >= form.jamSelesai)
+      newErrors.jamSelesai = "Harus setelah jam mulai";
+    if (form.beratKg <= 0) newErrors.beratKg = "Harus lebih dari 0";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
     onSubmit(form);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between mb-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">Tambah Booking</h2>
+            <h2 className="text-base font-semibold text-gray-800">Tambah Booking</h2>
             <p className="text-xs text-gray-400 mt-0.5">Isi detail janji temu baru</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">
-                Nama Pasien (Hewan)
-              </label>
-              <input
-                name="namaPasien"
-                value={form.namaPasien}
-                onChange={handleChange}
-                required
-                placeholder="Contoh: Chiko"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
+        {/* Scrollable Body */}
+        <div className="overflow-y-auto px-6 py-5 space-y-5">
+          {/* Informasi Pasien */}
+          <div>
+            <SectionHeader icon={<PawPrint size={14} />} label="Informasi Pasien" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Field label="Nama Pasien (Hewan)" required error={errors.namaPasien}>
+                  <input
+                    name="namaPasien"
+                    value={form.namaPasien}
+                    onChange={handleChange}
+                    placeholder="Contoh: Chiko"
+                    className={inputClass(errors.namaPasien)}
+                  />
+                </Field>
+              </div>
 
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">
-                Nama Pemilik
-              </label>
-              <input
-                name="namaPemilik"
-                value={form.namaPemilik}
-                onChange={handleChange}
-                required
-                placeholder=""
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
+              <Field label="Kategori" required error={errors.kategori}>
+                <select
+                  name="kategori"
+                  value={form.kategori}
+                  onChange={handleChange}
+                  className={inputClass(errors.kategori)}
+                >
+                  <option value="">Pilih kategori</option>
+                  {KATEGORI_OPTIONS.map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+              </Field>
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Jenis</label>
-              <input
-                name="jenis"
-                value={form.jenis}
-                onChange={handleChange}
-                placeholder="Contoh: Anggora"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
+              <Field label="Jenis / Ras" error={errors.jenis}>
+                <input
+                  name="jenis"
+                  value={form.jenis}
+                  onChange={handleChange}
+                  placeholder="Contoh: Anggora"
+                  className={inputClass(errors.jenis)}
+                />
+              </Field>
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Usia</label>
-              <input
-                name="usia"
-                value={form.usia}
-                onChange={handleChange}
-                placeholder="Contoh: 2 Tahun"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
+              <Field label="Usia" error={errors.usia}>
+                <input
+                  name="usia"
+                  value={form.usia}
+                  onChange={handleChange}
+                  placeholder="Contoh: 2 Tahun"
+                  className={inputClass(errors.usia)}
+                />
+              </Field>
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Jam Mulai</label>
-              <input
-                type="time"
-                name="jamMulai"
-                value={form.jamMulai}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
+              <Field label="Berat (kg)" required error={errors.beratKg}>
+                <input
+                  type="number"
+                  name="beratKg"
+                  value={form.beratKg === 0 ? "" : form.beratKg}
+                  onChange={handleChange}
+                  min={0}
+                  step={0.1}
+                  placeholder="Contoh: 3.5"
+                  className={inputClass(errors.beratKg)}
+                />
+              </Field>
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Jam Selesai</label>
-              <input
-                type="time"
-                name="jamSelesai"
-                value={form.jamSelesai}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Tanggal</label>
-              <input
-                type="date"
-                name="tanggal"
-                value={form.tanggal}
-                onChange={handleChange}
-                required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition"
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Status</label>
-              <select
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 transition bg-white"
-              >
-                <option value="Terjadwal">Terjadwal</option>
-                <option value="Selesai">Selesai</option>
-                <option value="Dibatalkan">Dibatalkan</option>
-              </select>
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                  Jenis Kelamin <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-3">
+                  {(["Jantan", "Betina"] as JenisKelamin[]).map((jk) => (
+                    <button
+                      key={jk}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, jenisKelamin: jk }))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        form.jenisKelamin === jk
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {jk === "Jantan" ? "♂ Jantan" : "♀ Betina"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 mt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
-            >
-              Simpan Booking
-            </button>
+          <hr className="border-gray-100" />
+
+          {/* Informasi Pemilik */}
+          <div>
+            <SectionHeader icon={<User size={14} />} label="Informasi Pemilik" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Field label="Nama Pemilik" required error={errors.namaPemilik}>
+                  <input
+                    name="namaPemilik"
+                    value={form.namaPemilik}
+                    onChange={handleChange}
+                    placeholder="Nama lengkap pemilik"
+                    className={inputClass(errors.namaPemilik)}
+                  />
+                </Field>
+              </div>
+
+              <div className="col-span-2">
+                <Field label="Alamat" error={errors.alamatPemilik}>
+                  <input
+                    name="alamatPemilik"
+                    value={form.alamatPemilik}
+                    onChange={handleChange}
+                    placeholder="Alamat lengkap"
+                    className={inputClass(errors.alamatPemilik)}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Email" error={errors.emailPemilik}>
+                <input
+                  type="email"
+                  name="emailPemilik"
+                  value={form.emailPemilik}
+                  onChange={handleChange}
+                  placeholder="email@contoh.com"
+                  className={inputClass(errors.emailPemilik)}
+                />
+              </Field>
+
+              <Field label="No. Telepon" required error={errors.telpPemilik}>
+                <input
+                  type="tel"
+                  name="telpPemilik"
+                  value={form.telpPemilik}
+                  onChange={handleChange}
+                  placeholder="08xx-xxxx-xxxx"
+                  className={inputClass(errors.telpPemilik)}
+                />
+              </Field>
+            </div>
           </div>
-        </form>
+
+          <hr className="border-gray-100" />
+
+          {/* Jadwal */}
+          <div>
+            <SectionHeader icon={<CalendarDays size={14} />} label="Jadwal" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Field label="Tanggal" required error={errors.tanggal}>
+                  <input
+                    type="date"
+                    name="tanggal"
+                    value={form.tanggal}
+                    onChange={handleChange}
+                    className={inputClass(errors.tanggal)}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Jam Mulai" required error={errors.jamMulai}>
+                <input
+                  type="time"
+                  name="jamMulai"
+                  value={form.jamMulai}
+                  onChange={handleChange}
+                  className={inputClass(errors.jamMulai)}
+                />
+              </Field>
+
+              <Field label="Jam Selesai" required error={errors.jamSelesai}>
+                <input
+                  type="time"
+                  name="jamSelesai"
+                  value={form.jamSelesai}
+                  onChange={handleChange}
+                  className={inputClass(errors.jamSelesai)}
+                />
+              </Field>
+
+              <div className="col-span-2">
+                <Field label="Status" error={errors.status}>
+                  <select
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                    className={inputClass(errors.status)}
+                  >
+                    <option value="Terjadwal">Terjadwal</option>
+                    <option value="Selesai">Selesai</option>
+                    <option value="Dibatalkan">Dibatalkan</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="flex-1 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            Simpan Booking
+          </button>
+        </div>
       </div>
     </div>
   );
