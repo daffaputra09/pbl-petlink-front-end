@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import BookingList from "@/components/booking/BookingList";
 import TambahBookingModal from "@/components/booking/TambahBookingModal";
 import DetailBookingModal from "@/components/booking/DetailBookingModal";
+import RescheduleBookingModal from "@/components/booking/RescheduleBookingModal";
 import { Booking, BookingStatus } from "@/types/booking";
 import { DUMMY_BOOKINGS } from "@/data/booking";
 
@@ -16,6 +17,7 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [isTambahOpen, setIsTambahOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
 
   const filterTabs: FilterTab[] = ["Semua", "Terjadwal", "Selesai", "Dibatalkan"];
 
@@ -42,9 +44,19 @@ export default function BookingPage() {
   };
 
   const handleReschedule = (id: string) => {
-    // TODO: open reschedule form — close detail for now
+    const booking = bookings.find((b) => b.id === id);
+    if (!booking) return;
     setSelectedBooking(null);
-    alert(`Reschedule booking #${id} — tambahkan form reschedule di sini.`);
+    setRescheduleBooking(booking);
+  };
+
+  const handleSubmitReschedule = (
+    id: string, tanggal: string, jamMulai: string, jamSelesai: string
+  ) => {
+    setBookings((prev) =>
+      prev.map((b) => b.id === id ? { ...b, tanggal, jamMulai, jamSelesai } : b)
+    );
+    setRescheduleBooking(null);
   };
 
   const handleCancel = (id: string) => {
@@ -150,6 +162,14 @@ export default function BookingPage() {
           onUpdateStatus={handleUpdateStatus}
           onReschedule={handleReschedule}
           onCancel={handleCancel}
+        />
+      )}
+
+      {rescheduleBooking && (
+        <RescheduleBookingModal
+          booking={rescheduleBooking}
+          onClose={() => setRescheduleBooking(null)}
+          onSubmit={handleSubmitReschedule}
         />
       )}
 

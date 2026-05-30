@@ -36,12 +36,10 @@ export default function DetailBookingModal({
 }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) onClose();
   };
 
-  // Close on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
