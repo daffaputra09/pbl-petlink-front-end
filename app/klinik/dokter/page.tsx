@@ -6,17 +6,14 @@ import DoctorTable from "@/components/dokter/DoctorTable";
 import AddDoctorModal from "@/components/dokter/AddDoctorModal";
 import DoctorScheduleTable from "@/components/dokter/DoctorScheduleTable";
 import { Doctor } from "@/types/dokter";
-import { DUMMY_DOCTORS } from "@/data/dokter";
-import { JadwalDokter } from "@/types/jadwal";
-import { DUMMY_JADWAL } from "@/data/jadwal";
+import { useClinicDoctors } from "@/hooks/use-clinic-doctors";
+import { inviteDoctor, updateDoctorProfile } from "@/lib/actions/invite-doctor";
 
 export default function DokterPage() {
-  const [doctors, setDoctors] = useState<Doctor[]>(DUMMY_DOCTORS);
-  const [jadwal] = useState<JadwalDokter[]>(DUMMY_JADWAL);
+  const { doctors, loading, refresh } = useClinicDoctors();
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Doctor | null>(null);
 
-  // Stat counts
   const totalDokter = doctors.length;
   const bertugas = doctors.filter((d) => d.status === "Bertugas").length;
   const cuti = doctors.filter((d) => d.status === "Cuti").length;
@@ -32,25 +29,52 @@ export default function DokterPage() {
     setModalOpen(true);
   }
 
-  function handleSave(doctor: Doctor) {
-    setDoctors((prev) => {
-      const exists = prev.find((d) => d.id === doctor.id);
-      if (exists) {
-        return prev.map((d) => (d.id === doctor.id ? doctor : d));
+  async function handleSave(doctor: Doctor, password?: string) {
+    try {
+      if (editData) {
+        await updateDoctorProfile({
+          doctorId: doctor.id,
+          name: doctor.nama,
+          specialization: doctor.spesialisasi[0],
+          bio: doctor.biografi,
+          isActive: doctor.status !== "Cuti",
+        });
+      } else {
+        if (!password) {
+          alert("Kata sandi wajib untuk dokter baru.");
+          return;
+        }
+        await inviteDoctor({
+          email: doctor.email,
+          password,
+          name: doctor.nama,
+          specialization: doctor.spesialisasi[0] ?? "General Praktek",
+          bio: doctor.biografi,
+          isActive: doctor.status !== "Cuti",
+        });
       }
-      return [...prev, doctor];
-    });
+      setModalOpen(false);
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal menyimpan dokter");
+    }
   }
 
-  function handleDelete(id: string) {
-    if (confirm("Yakin ingin menghapus dokter ini?")) {
-      setDoctors((prev) => prev.filter((d) => d.id !== id));
+  async function handleDelete(id: string) {
+    if (!confirm("Nonaktifkan dokter ini?")) return;
+    try {
+      await updateDoctorProfile({
+        doctorId: id,
+        isActive: false,
+      });
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal menonaktifkan");
     }
   }
 
   return (
     <>
-      {/* Stat Cards */}
       <DoctorStatCards
         total={totalDokter}
         bertugas={bertugas}
@@ -58,18 +82,19 @@ export default function DokterPage() {
         operasi={operasi}
       />
 
-      {/* Tabel e dokter yes */}
-      <DoctorTable
-        doctors={doctors}
-        onDelete={handleDelete}
-        onEdit={handleEdit}
-        onAdd={handleAdd}
-      />
+      {loading ? (
+        <p className="px-6 text-sm text-gray-500">Memuat dokter...</p>
+      ) : (
+        <DoctorTable
+          doctors={doctors}
+          onAdd={handleAdd}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      )}
 
-      {/* Tabel ringkasan jadwal dokter */}
-      <DoctorScheduleTable doctors={doctors} jadwal={jadwal} />
+      <DoctorScheduleTable doctors={doctors} jadwal={[]} />
 
-      {/* tambah dokter modal */}
       <AddDoctorModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

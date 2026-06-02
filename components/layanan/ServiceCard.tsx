@@ -3,11 +3,10 @@
 import Link from "next/link";
 import {Trash2,Plus,} from "lucide-react";
 import { Service } from "@/types/layanan";
-import { defaultServices } from "@/data/layanan";
 
 interface ServiceCardProps {
   service: Service;
-  onDelete: (id: number) => void;
+  onDelete: (id: string | number) => void;
 }
 
 function ServiceCard({ service, onDelete }: ServiceCardProps) {
@@ -83,16 +82,11 @@ function ServiceCard({ service, onDelete }: ServiceCardProps) {
 }
 
 interface ServiceCardsProps {
-  data?: Service[];
-  onDelete?: (id: number) => void;
+  data: Service[];
+  onDelete: (id: string | number) => void;
 }
 
-export default function ServiceCards({
-  data = defaultServices,
-  onDelete,
-}: ServiceCardsProps) {
-  const handleDelete =
-    onDelete ?? ((id: number) => console.log("Delete service:", id));
+export default function ServiceCards({ data, onDelete }: ServiceCardsProps) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -100,7 +94,7 @@ export default function ServiceCards({
         <ServiceCard
           key={service.id}
           service={service}
-          onDelete={handleDelete}
+          onDelete={onDelete}
         />
       ))}
 

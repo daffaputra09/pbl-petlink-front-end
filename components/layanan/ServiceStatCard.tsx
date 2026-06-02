@@ -1,8 +1,8 @@
 "use client";
 
-import { stats } from "@/data/layanan";
+import type { Stat } from "@/types/layanan";
 
-export default function ServiceStatCard() {
+export default function ServiceStatCard({ stats }: { stats: Stat[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
       {stats.map((stat, i) => (

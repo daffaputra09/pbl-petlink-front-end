@@ -20,7 +20,7 @@ const HARI = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 interface AddDoctorModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (doctor: Doctor) => void;
+  onSave: (doctor: Doctor, password?: string) => void;
   editData?: Doctor | null;
 }
 
@@ -102,8 +102,7 @@ export default function AddDoctorModal({
       jadwal,
       biografi,
     };
-    onSave(doc);
-    onClose();
+    onSave(doc, password || undefined);
   }
 
   return (

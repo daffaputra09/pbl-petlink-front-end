@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useClinicServices } from "@/hooks/use-clinic-services";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -87,6 +88,7 @@ type FormErrors = Partial<Record<keyof FormState, string>>;
 
 export default function TambahLayananPage() {
   const router = useRouter();
+  const { upsert } = useClinicServices();
 
   const [selectedIcon, setSelectedIcon] =
     useState<string>("shield-plus");
@@ -128,14 +130,23 @@ export default function TambahLayananPage() {
     }
 
     setSaving(true);
-
-    await new Promise<void>((resolve) =>
-      setTimeout(resolve, 800)
-    );
-
-    setSaving(false);
-
-    router.push("/layanan");
+    try {
+      const price = Number(form.harga.replace(/\D/g, ""));
+      await upsert({
+        name: form.nama.trim(),
+        description: form.deskripsi.trim(),
+        price,
+        durationMinutes: 60,
+        isClinicService: true,
+        isHomeService: false,
+        isActive: true,
+      });
+      router.push("/klinik/layanan");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal menyimpan layanan");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleChange = (

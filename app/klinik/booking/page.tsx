@@ -1,78 +1,97 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import BookingList from "@/components/booking/BookingList";
 import TambahBookingModal from "@/components/booking/TambahBookingModal";
 import DetailBookingModal from "@/components/booking/DetailBookingModal";
 import RescheduleBookingModal from "@/components/booking/RescheduleBookingModal";
 import { Booking, BookingStatus } from "@/types/booking";
-import { DUMMY_BOOKINGS } from "@/data/booking";
+import { useClinicBookings } from "@/hooks/use-clinic-bookings";
+import { dbStatusFromUiFilter } from "@/lib/booking/display-status";
 
 type FilterTab = "Semua" | BookingStatus;
 
 export default function BookingPage() {
-  const [bookings, setBookings] = useState<Booking[]>(DUMMY_BOOKINGS);
+  const {
+    bookings,
+    loading,
+    error,
+    updateStatus,
+    reschedule,
+    createManual,
+  } = useClinicBookings();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("Semua");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [isTambahOpen, setIsTambahOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(
+    null
+  );
 
   const filterTabs: FilterTab[] = ["Semua", "Terjadwal", "Selesai", "Dibatalkan"];
 
-  const filteredBookings = bookings.filter((b) => {
-    const matchStatus = activeFilter === "Semua" || b.status === activeFilter;
-    const matchDate = !selectedDate || b.tanggal === selectedDate;
-    return matchStatus && matchDate;
-  });
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      const matchStatus =
+        activeFilter === "Semua" ||
+        b.status === activeFilter ||
+        (activeFilter === "Terjadwal" &&
+          b.rawStatus &&
+          dbStatusFromUiFilter("Terjadwal").includes(b.rawStatus));
+      const matchDate = !selectedDate || b.tanggal === selectedDate;
+      return matchStatus && matchDate;
+    });
+  }, [bookings, activeFilter, selectedDate]);
 
-  const handleTambahBooking = (newBooking: Omit<Booking, "id">) => {
-    const booking: Booking = { ...newBooking, id: Date.now().toString() };
-    setBookings((prev) => [...prev, booking]);
-    setIsTambahOpen(false);
+  const handleUpdateStatus = async (id: string, status: BookingStatus) => {
+    try {
+      await updateStatus(id, status);
+      setSelectedBooking((prev) =>
+        prev && prev.id === id ? { ...prev, status } : prev
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal memperbarui status");
+    }
   };
 
-  const handleUpdateStatus = (id: string, status: BookingStatus) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status } : b))
-    );
-
-    setSelectedBooking((prev) =>
-      prev && prev.id === id ? { ...prev, status } : prev
-    );
-  };
-
-  const handleReschedule = (id: string) => {
-    const booking = bookings.find((b) => b.id === id);
-    if (!booking) return;
-    setSelectedBooking(null);
-    setRescheduleBooking(booking);
-  };
-
-  const handleSubmitReschedule = (
-    id: string, tanggal: string, jamMulai: string, jamSelesai: string
+  const handleSubmitReschedule = async (
+    id: string,
+    tanggal: string,
+    jamMulai: string,
+    jamSelesai: string
   ) => {
-    setBookings((prev) =>
-      prev.map((b) => b.id === id ? { ...b, tanggal, jamMulai, jamSelesai } : b)
-    );
-    setRescheduleBooking(null);
-  };
-
-  const handleCancel = (id: string) => {
-    handleUpdateStatus(id, "Dibatalkan");
-    setSelectedBooking(null);
+    try {
+      await reschedule(id, tanggal, jamMulai, jamSelesai);
+      setRescheduleBooking(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal menjadwalkan ulang");
+    }
   };
 
   const handleEkspor = () => {
     const headers = [
-      "Nama Pasien", "Nama Pemilik", "Kategori", "Jenis", "Usia",
-      "Berat (kg)", "Jenis Kelamin", "Jam Mulai", "Jam Selesai", "Tanggal", "Status",
+      "Nama Pasien",
+      "Nama Pemilik",
+      "Kategori",
+      "Jenis",
+      "Usia",
+      "Jam Mulai",
+      "Jam Selesai",
+      "Tanggal",
+      "Status",
     ];
     const rows = bookings.map((b) =>
       [
-        b.namaPasien, b.namaPemilik, b.kategori, b.jenis, b.usia,
-        b.beratKg, b.jenisKelamin, b.jamMulai, b.jamSelesai, b.tanggal, b.status,
+        b.namaPasien,
+        b.namaPemilik,
+        b.kategori,
+        b.jenis,
+        b.usia,
+        b.jamMulai,
+        b.jamSelesai,
+        b.tanggal,
+        b.status,
       ].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
@@ -87,7 +106,6 @@ export default function BookingPage() {
 
   return (
     <div className="p-6 min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Booking</h1>
@@ -97,6 +115,7 @@ export default function BookingPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handleEkspor}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -104,6 +123,7 @@ export default function BookingPage() {
             Ekspor File
           </button>
           <button
+            type="button"
             onClick={() => setIsTambahOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
           >
@@ -112,11 +132,20 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {error && (
+        <p className="text-sm text-red-600 mb-4 bg-red-50 px-3 py-2 rounded-lg">
+          {error}
+        </p>
+      )}
+      {loading && (
+        <p className="text-sm text-gray-500 mb-4">Memuat booking...</p>
+      )}
+
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         {filterTabs.map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveFilter(tab)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
               activeFilter === tab
@@ -127,8 +156,6 @@ export default function BookingPage() {
             {tab}
           </button>
         ))}
-
-        {/* Date Picker */}
         <div className="flex items-center gap-2 ml-auto bg-white border border-gray-200 rounded-lg px-3 py-1.5">
           <span className="text-gray-400 text-sm">📅</span>
           <input
@@ -139,6 +166,7 @@ export default function BookingPage() {
           />
           {selectedDate && (
             <button
+              type="button"
               onClick={() => setSelectedDate("")}
               className="text-xs text-gray-400 hover:text-gray-600 ml-1"
             >
@@ -148,20 +176,24 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {/* Booking List */}
       <BookingList
         bookings={filteredBookings}
         onSelectBooking={setSelectedBooking}
       />
 
-      {/* Detail Modal */}
       {selectedBooking && (
         <DetailBookingModal
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
           onUpdateStatus={handleUpdateStatus}
-          onReschedule={handleReschedule}
-          onCancel={handleCancel}
+          onReschedule={(id) => {
+            const b = bookings.find((x) => x.id === id);
+            if (b) {
+              setSelectedBooking(null);
+              setRescheduleBooking(b);
+            }
+          }}
+          onCancel={(id) => handleUpdateStatus(id, "Dibatalkan")}
         />
       )}
 
@@ -173,11 +205,17 @@ export default function BookingPage() {
         />
       )}
 
-      {/* Tambah Booking Modal */}
       {isTambahOpen && (
         <TambahBookingModal
           onClose={() => setIsTambahOpen(false)}
-          onSubmit={handleTambahBooking}
+          onSubmit={async (payload) => {
+            try {
+              await createManual(payload);
+              setIsTambahOpen(false);
+            } catch (e) {
+              alert(e instanceof Error ? e.message : "Gagal menambah booking");
+            }
+          }}
         />
       )}
     </div>

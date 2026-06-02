@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 import { FormPenarikan } from "@/types/keuangan";
 import { daftarBank } from "@/data/keuangan";
+import { useClinicFinance } from "@/hooks/use-clinic-finance";
 
-const SALDO_TERSEDIA = 12_750_000;
 const MIN_PENARIKAN = 100_000;
 
 function formatRupiah(val: number) {
@@ -37,6 +37,8 @@ function formatInput(val: string): string {
 
 export default function PenarikanPage() {
   const router = useRouter();
+  const { balance, requestWithdraw } = useClinicFinance();
+  const SALDO_TERSEDIA = balance;
   const [form, setForm] = useState<FormPenarikan>({
     jumlah: "",
     namaBank: "",
@@ -69,9 +71,14 @@ export default function PenarikanPage() {
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setSuccess(true);
+    try {
+      await requestWithdraw(jumlahAngka);
+      setSuccess(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal mengajukan penarikan");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNominalCepat = (val: number) => {

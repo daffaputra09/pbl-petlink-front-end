@@ -1,12 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { X, User, PawPrint, CalendarDays } from "lucide-react";
-import { Booking, BookingStatus, JenisKelamin } from "@/types/booking";
+import { X, User, PawPrint, CalendarDays, Loader2 } from "lucide-react";
+import { Booking, JenisKelamin } from "@/types/booking";
+import { useClinicServices } from "@/hooks/use-clinic-services";
+import { useClinicDoctors } from "@/hooks/use-clinic-doctors";
+import { lookupCustomerByEmail } from "@/lib/actions/lookup-customer";
+import { provisionCustomerWithPet } from "@/lib/actions/customer-provision";
+
+export type ManualBookingPayload = {
+  customerId: string;
+  petId: string;
+  doctorId?: string;
+  serviceIds: string[];
+  tanggal: string;
+  jamMulai: string;
+  jamSelesai: string;
+  notes?: string;
+};
 
 type Props = {
   onClose: () => void;
-  onSubmit: (booking: Omit<Booking, "id">) => void;
+  onSubmit: (payload: ManualBookingPayload) => Promise<void>;
 };
 
 type FormState = Omit<Booking, "id">;
@@ -70,7 +85,12 @@ function Field({
 }
 
 export default function TambahBookingModal({ onClose, onSubmit }: Props) {
+  const { services } = useClinicServices();
+  const { doctors } = useClinicDoctors();
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [serviceId, setServiceId] = useState("");
+  const [doctorId, setDoctorId] = useState("");
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
   const handleChange = (
@@ -90,6 +110,8 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
     if (!form.kategori) newErrors.kategori = "Wajib dipilih";
     if (!form.namaPemilik) newErrors.namaPemilik = "Wajib diisi";
     if (!form.telpPemilik) newErrors.telpPemilik = "Wajib diisi";
+    if (!form.emailPemilik.trim()) newErrors.emailPemilik = "Email wajib untuk pelanggan";
+    if (!serviceId) newErrors.namaPasien = "Pilih layanan";
     if (!form.tanggal) newErrors.tanggal = "Wajib diisi";
     if (!form.jamMulai) newErrors.jamMulai = "Wajib diisi";
     if (!form.jamSelesai) newErrors.jamSelesai = "Wajib diisi";
@@ -100,9 +122,66 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
-    onSubmit(form);
+    setSaving(true);
+    try {
+      const email = form.emailPemilik.trim();
+      let customerId: string;
+      let petId: string;
+
+      const existing = await lookupCustomerByEmail(email);
+      const birthYear = new Date().getFullYear() - 1;
+      const sex = form.jenisKelamin === "Betina" ? "female" : "male";
+
+      if (existing) {
+        customerId = existing.customerId;
+        const provisioned = await provisionCustomerWithPet({
+          email,
+          password: "petlink-temp-1",
+          name: form.namaPemilik.trim(),
+          phone: form.telpPemilik,
+          address: form.alamatPemilik,
+          petName: form.namaPasien.trim(),
+          petTypeName: form.kategori,
+          breed: form.jenis,
+          sex: sex as "male" | "female",
+          birthMonth: 1,
+          birthYear,
+        });
+        petId = provisioned.petId;
+      } else {
+        const provisioned = await provisionCustomerWithPet({
+          email,
+          password: "petlink-temp-1",
+          name: form.namaPemilik.trim(),
+          phone: form.telpPemilik,
+          address: form.alamatPemilik,
+          petName: form.namaPasien.trim(),
+          petTypeName: form.kategori,
+          breed: form.jenis,
+          sex: sex as "male" | "female",
+          birthMonth: 1,
+          birthYear,
+        });
+        customerId = provisioned.customerId;
+        petId = provisioned.petId;
+      }
+
+      await onSubmit({
+        customerId,
+        petId,
+        doctorId: doctorId || undefined,
+        serviceIds: [serviceId],
+        tanggal: form.tanggal,
+        jamMulai: form.jamMulai,
+        jamSelesai: form.jamSelesai,
+      });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -267,6 +346,48 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
 
           <hr className="border-gray-100" />
 
+          <div>
+            <SectionHeader icon={<PawPrint size={14} />} label="Layanan & Dokter" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Field label="Layanan" required>
+                  <select
+                    value={serviceId}
+                    onChange={(e) => setServiceId(e.target.value)}
+                    className={inputClass()}
+                  >
+                    <option value="">Pilih layanan</option>
+                    {services
+                      .filter((s) => s.isActive)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} — Rp {s.price.toLocaleString("id-ID")}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              </div>
+              <div className="col-span-2">
+                <Field label="Dokter (opsional)">
+                  <select
+                    value={doctorId}
+                    onChange={(e) => setDoctorId(e.target.value)}
+                    className={inputClass()}
+                  >
+                    <option value="">Tanpa dokter</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.nama}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+
           {/* Jadwal */}
           <div>
             <SectionHeader icon={<CalendarDays size={14} />} label="Jadwal" />
@@ -303,20 +424,6 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
                 />
               </Field>
 
-              <div className="col-span-2">
-                <Field label="Status" error={errors.status}>
-                  <select
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    className={inputClass(errors.status)}
-                  >
-                    <option value="Terjadwal">Terjadwal</option>
-                    <option value="Selesai">Selesai</option>
-                    <option value="Dibatalkan">Dibatalkan</option>
-                  </select>
-                </Field>
-              </div>
             </div>
           </div>
         </div>
@@ -332,9 +439,11 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
           </button>
           <button
             type="button"
+            disabled={saving}
             onClick={handleSubmit}
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-60"
           >
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             Simpan Booking
           </button>
         </div>

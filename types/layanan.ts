@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 
 export interface Service {
-  id: number;
+  id: string | number;
   name: string;
   category: string;
   categoryColor: string;

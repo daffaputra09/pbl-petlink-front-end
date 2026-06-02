@@ -4,6 +4,12 @@ export type JenisKelamin = "Jantan" | "Betina";
 
 export type Booking = {
   id: string;
+  /** DB fields for mutations (optional on UI-only rows) */
+  rawStatus?: string;
+  paymentStatus?: string | null;
+  scheduledStartAt?: string;
+  scheduledEndAt?: string;
+  customerId?: string;
   // Pasien
   namaPasien: string;
   jenis: string;        // breed / ras

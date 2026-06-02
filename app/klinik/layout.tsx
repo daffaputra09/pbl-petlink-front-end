@@ -7,11 +7,10 @@ export default function KlinikLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen items-start bg-gray-50">
       <KlinikSidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="min-h-screen min-w-0 flex-1">
         <Header />
-        <div className=""></div>
         {children}
       </main>
     </div>

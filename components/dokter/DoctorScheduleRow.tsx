@@ -17,7 +17,7 @@ export default function DoctorScheduleRow({
   const router = useRouter();
   const doctorJadwal = jadwal.filter((j) => j.doctorId === doctor.id);
   const aktif = doctorJadwal.filter((j) => j.status === "Aktif").length;
-  const hariList = [...new Set(doctorJadwal.map((j) => j.hari))];
+  const hariList = Array.from(new Set(doctorJadwal.map((j) => j.hari)));
 
   return (
     <tr className="hover:bg-gray-50 transition-colors">

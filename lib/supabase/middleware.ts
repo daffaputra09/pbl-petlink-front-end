@@ -1,0 +1,71 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+export async function updateSession(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+  const isKlinikRoute = pathname.startsWith("/klinik");
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname.startsWith("/register");
+
+  if (isKlinikRoute && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (user && (isKlinikRoute || isAuthRoute)) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const isClinic =
+      profile?.role === "clinic" && profile?.is_active !== false;
+
+    if (isKlinikRoute && !isClinic) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("error", "bukan_klinik");
+      return NextResponse.redirect(url);
+    }
+
+    if (isAuthRoute && isClinic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/klinik/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  return supabaseResponse;
+}

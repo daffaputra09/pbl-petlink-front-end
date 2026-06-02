@@ -26,7 +26,7 @@ export default function KlinikSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 min-h-screen flex flex-col justify-between bg-emerald-700 text-white sticky top-0">
+    <aside className="sticky top-0 z-30 flex h-dvh max-h-dvh w-64 shrink-0 flex-col justify-between overflow-y-auto bg-emerald-700 text-white">
 
       {/* TOP */}
       <div>
