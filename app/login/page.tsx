@@ -11,20 +11,31 @@ import { AuthTextField } from "@/components/auth/AuthTextField";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { validateEmail } from "@/lib/auth/validation";
 
+function defaultNextForRole(role: string): string {
+  if (role === "admin") return "/admin/dashboard";
+  return "/klinik/dashboard";
+}
+
+function errorMessageForParam(param: string | null): string {
+  if (param === "bukan_klinik") {
+    return "Akun ini bukan akun klinik. Gunakan portal yang sesuai.";
+  }
+  if (param === "bukan_admin") {
+    return "Akun ini bukan akun admin. Gunakan portal yang sesuai.";
+  }
+  return "";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/klinik/dashboard";
+  const nextParam = searchParams.get("next");
   const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [error, setError] = useState(
-    errorParam === "bukan_klinik"
-      ? "Akun ini bukan akun klinik. Gunakan portal yang sesuai."
-      : ""
-  );
+  const [error, setError] = useState(errorMessageForParam(errorParam));
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -53,9 +64,10 @@ export default function LoginPage() {
         .maybeSingle();
 
       if (profileError) throw profileError;
-      if (!profile || profile.role !== "clinic") {
+
+      if (!profile || (profile.role !== "clinic" && profile.role !== "admin")) {
         await supabase.auth.signOut();
-        setError("Akun ini bukan akun klinik.");
+        setError("Akun ini tidak memiliki akses ke portal PetLink.");
         return;
       }
       if (profile.is_active === false) {
@@ -64,7 +76,16 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(next);
+      let destination = defaultNextForRole(profile.role);
+      if (nextParam) {
+        if (profile.role === "admin" && nextParam.startsWith("/admin")) {
+          destination = nextParam;
+        } else if (profile.role === "clinic" && nextParam.startsWith("/klinik")) {
+          destination = nextParam;
+        }
+      }
+
+      router.push(destination);
       router.refresh();
     } catch (err) {
       setError(messageFromAuthError(err));
@@ -76,15 +97,15 @@ export default function LoginPage() {
   return (
     <AuthMarketingLayout
       heroTitle="Selamat datang kembali"
-      heroSubtitle="Masuk ke portal klinik untuk mengelola operasional harian Anda."
+      heroSubtitle="Masuk ke portal PetLink untuk mengelola klinik atau administrasi platform."
     >
       <div className="w-full max-w-md mx-auto lg:mx-0 lg:max-w-lg xl:max-w-xl">
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-            Masuk Klinik
+            Masuk PetLink
           </h1>
           <p className="text-sm text-gray-500 mt-2">
-            Gunakan akun klinik yang sudah terdaftar di PetLink.
+            Gunakan akun klinik atau admin yang sudah terdaftar.
           </p>
         </div>
 
@@ -110,7 +131,7 @@ export default function LoginPage() {
                 if (err) setEmailError(err);
               }}
               error={emailError}
-              placeholder="nama@klinik.com"
+              placeholder="nama@email.com"
             />
             <PasswordField
               label="Kata sandi"
@@ -131,7 +152,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-sm text-gray-500 text-center mt-6 pt-6 border-t border-gray-100">
-            Belum punya akun?{" "}
+            Belum punya akun klinik?{" "}
             <Link
               href="/register"
               className="text-emerald-600 font-semibold hover:underline"
