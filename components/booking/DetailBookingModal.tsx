@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, RefreshCw, MapPin, Mail, Phone, User } from "lucide-react";
+import { X, RefreshCw, MapPin, Mail, Phone, User, Stethoscope, Wrench, CreditCard, FileText } from "lucide-react";
 import { Booking, BookingStatus } from "@/types/booking";
 
 type Props = {
@@ -26,6 +26,12 @@ const statusConfig: Record<BookingStatus, { label: string; className: string }> 
     className: "bg-red-50 text-red-500 border border-red-200",
   },
 };
+
+function formatTanggal(tanggal: string): string {
+  const [y, m, d] = tanggal.split("-");
+  if (d && m && y) return `${d}/${m}/${y}`;
+  return tanggal;
+}
 
 export default function DetailBookingModal({
   booking,
@@ -87,32 +93,21 @@ export default function DetailBookingModal({
             <h3 className="text-2xl font-bold text-gray-900">{booking.namaPasien}</h3>
             <p className="text-sm text-gray-500 mt-0.5">{booking.jenis}</p>
           </div>
-
           {/* Divider */}
           <hr className="border-gray-100" />
 
           {/* Stats Row */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">
-                Berat
-              </p>
-              <p className="text-sm font-semibold text-gray-800">
-                {booking.beratKg} kg
-              </p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Berat</p>
+              <p className="text-sm font-semibold text-gray-800">{booking.beratKg} kg</p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">
-                Jenis Kelamin
-              </p>
-              <p className="text-sm font-semibold text-gray-800">
-                {booking.jenisKelamin}
-              </p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Jenis Kelamin</p>
+              <p className="text-sm font-semibold text-gray-800">{booking.jenisKelamin}</p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">
-                Umur
-              </p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Umur</p>
               <p className="text-sm font-semibold text-gray-800">{booking.usia}</p>
             </div>
           </div>
@@ -120,20 +115,75 @@ export default function DetailBookingModal({
           {/* Jadwal */}
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">
-                Jadwal
-              </p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Jadwal</p>
               <p className="text-sm font-semibold text-gray-800">
                 {booking.jamMulai} – {booking.jamSelesai}
               </p>
-              <p className="text-xs text-gray-500">{booking.tanggal}</p>
+              <p className="text-xs text-gray-500">{formatTanggal(booking.tanggal)}</p>
             </div>
-            <span
-              className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${className}`}
-            >
+            <span className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${className}`}>
               {label}
             </span>
           </div>
+
+          {/* Dokter */}
+          {booking.namaDokter && (
+            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
+              <Stethoscope size={16} className="text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Dokter</p>
+                <p className="text-sm font-semibold text-gray-800">{booking.namaDokter}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Layanan */}
+          {booking.namaLayanan && booking.namaLayanan.length > 0 && (
+            <div className="bg-gray-50 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench size={14} className="text-emerald-600 shrink-0" />
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Layanan</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {booking.namaLayanan.map((layanan, i) => (
+                  <span
+                    key={i}
+                    className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100"
+                  >
+                    {layanan}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Total Biaya */}
+          {booking.totalAmount != null && booking.totalAmount > 0 && (
+            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
+              <CreditCard size={16} className="text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Total Biaya</p>
+                <p className="text-sm font-semibold text-gray-800">
+                  {new Intl.NumberFormat("id-ID", {
+                    style: "currency",
+                    currency: "IDR",
+                    minimumFractionDigits: 0,
+                  }).format(booking.totalAmount)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Catatan */}
+          {booking.catatan && (
+            <div className="bg-amber-50 rounded-xl px-4 py-3 flex items-start gap-3 border border-amber-100">
+              <FileText size={15} className="text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-amber-500 font-medium mb-0.5">Catatan</p>
+                <p className="text-sm text-gray-700">{booking.catatan}</p>
+              </div>
+            </div>
+          )}
 
           {/* Informasi Pemilik */}
           <div>
@@ -143,11 +193,8 @@ export default function DetailBookingModal({
                 Informasi Pemilik
               </p>
             </div>
-
             <div className="border border-gray-100 rounded-xl px-4 py-3 space-y-2.5">
-              <p className="text-sm font-semibold text-gray-800">
-                {booking.namaPemilik}
-              </p>
+              <p className="text-sm font-semibold text-gray-800">{booking.namaPemilik}</p>
               <div className="flex items-start gap-2 text-xs text-gray-500">
                 <MapPin size={13} className="mt-0.5 shrink-0 text-gray-400" />
                 <span>{booking.alamatPemilik}</span>
@@ -162,8 +209,8 @@ export default function DetailBookingModal({
               </div>
             </div>
           </div>
-        </div>
 
+        </div>
         {/* Action Buttons */}
         <div className="px-6 pb-6 pt-3 space-y-3">
           {/* Update Status - only when Terjadwal */}
@@ -176,7 +223,7 @@ export default function DetailBookingModal({
               Update Status
             </button>
           )}
-
+          
           {/* Reschedule & Cancel row */}
           {booking.status === "Terjadwal" && (
             <div className="grid grid-cols-2 gap-3">

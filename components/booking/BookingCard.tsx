@@ -20,6 +20,12 @@ const statusConfig: Record<BookingStatus, { label: string; className: string }> 
   },
 };
 
+function formatTanggal(tanggal: string): string {
+  const [y, m, d] = tanggal.split("-");
+  if (d && m && y) return `${d}/${m}/${y}`;
+  return tanggal;
+}
+
 export default function BookingCard({ booking, onClick }: Props) {
   const { label, className } = statusConfig[booking.status];
 
@@ -42,7 +48,7 @@ export default function BookingCard({ booking, onClick }: Props) {
           <p className="text-sm font-semibold text-gray-700">
             {booking.jamMulai} - {booking.jamSelesai}
           </p>
-          <p className="text-xs text-gray-400">{booking.tanggal}</p>
+          <p className="text-xs text-gray-400"> {formatTanggal(booking.tanggal)} </p>
         </div>
         <span
           className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${className}`}

@@ -28,4 +28,10 @@ export type Booking = {
   tanggal: string;
   // Status
   status: BookingStatus;
+  //Dokter
+  namaDokter?: string | null;
+  namaLayanan?: string[] | null;
+  totalAmount?: number | null;
+  catatan?: string | null;
+  channel?: string | null;
 };
