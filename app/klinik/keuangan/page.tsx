@@ -11,6 +11,7 @@ import {
 import StatCard from "@/components/keuangan/FinanceStatCard";
 import GrafikPendapatan from "@/components/keuangan/GrafikPendapatan";
 import HistoryPenarikanTable from "@/components/keuangan/HistoryPenarikanTable";
+import HistoryPendapatanTable from "@/components/keuangan/HistoryPendapatanTable";
 import { useClinicFinance } from "@/hooks/use-clinic-finance";
 
 function formatRupiah(val: number) {
@@ -85,6 +86,7 @@ export default function KeuanganPage() {
             </div>
             <GrafikPendapatan data={grafikMingguan} />
             <HistoryPenarikanTable data={historyPenarikan} />
+            <HistoryPendapatanTable/>
           </>
         )}
       </div>

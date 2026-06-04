@@ -31,3 +31,12 @@ export interface FormPenarikan {
   nomorRekening: string;
   atasNama: string;
 }
+
+export interface Pendapatan {
+  id: string;
+  created_at: string;
+  pasien_nama: string;
+  layanan: string;
+  nominal: number;
+  metode_pembayaran: string;
+}
