@@ -11,6 +11,9 @@ export default function ConversationItem({
   isActive,
   onClick,
 }: ConversationItemProps) {
+  const unread = conversation.unreadCount ?? 0;
+  const hasUnread = unread > 0;
+
   return (
     <button
       onClick={onClick}
@@ -38,12 +41,29 @@ export default function ConversationItem({
 
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-0.5">
-          <span className="text-sm font-semibold text-gray-900 truncate">
+          <span
+            className={`text-sm truncate ${
+              hasUnread ? "font-bold text-gray-900" : "font-semibold text-gray-900"
+            }`}
+          >
             {conversation.name}
           </span>
           <span className="text-xs text-gray-400 shrink-0 ml-2">{conversation.time}</span>
         </div>
-        <p className="text-xs text-gray-500 truncate">{conversation.lastMessage}</p>
+        <div className="flex items-center gap-2">
+          <p
+            className={`text-xs truncate flex-1 ${
+              hasUnread ? "font-semibold text-gray-700" : "text-gray-500"
+            }`}
+          >
+            {conversation.lastMessage}
+          </p>
+          {hasUnread && (
+            <span className="shrink-0 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#1E6B4F] text-white text-[10px] font-bold flex items-center justify-center">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );
