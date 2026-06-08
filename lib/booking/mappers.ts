@@ -10,6 +10,10 @@ type PetRow = {
   pet_types: { name: string } | { name: string }[] | null;
 };
 
+type DoctorProfileJoin = {
+  profiles: { name: string } | { name: string }[] | null;
+};
+
 type BookingRow = {
   id: string;
   status: string;
@@ -23,10 +27,11 @@ type BookingRow = {
     | { address: string | null }
     | { address: string | null }[]
     | null;
-  doctor_profiles?: { profiles: { name: string } | null } | null;  
-  booking_items?: { services: { name: string } | null;
-  unit_price: number | null;
-  line_total: number | null;
+  doctor_profiles?: DoctorProfileJoin | DoctorProfileJoin[] | null;
+  booking_items?: {
+    services: { name: string } | { name: string }[] | null;
+    unit_price: number | null;
+    line_total: number | null;
   }[] | null;
 };
 
@@ -77,7 +82,8 @@ export function mapBookingRow(
   const pet = first(row.customer_pets);
   const customer = first(row.customer_profiles);
   const petType = pet ? first(pet.pet_types) : null;
-  const doctorProfile = first(row.doctor_profiles as any)?.profiles;
+  const doctorJoin = first(row.doctor_profiles);
+  const doctorProfile = first(doctorJoin?.profiles ?? null);
   const namaDokter = doctorProfile?.name ?? null;
 
   const display = resolveBookingDisplayStatus({
@@ -100,7 +106,7 @@ export function mapBookingRow(
   const bookingItems = Array.isArray(row.booking_items) ? row.booking_items : [];
 
   const namaLayanan = bookingItems
-    .map((bi) => bi?.services?.name)
+    .map((bi) => first(bi?.services ?? null)?.name)
     .filter(Boolean) as string[];
 
   const totalAmount = bookingItems.reduce(

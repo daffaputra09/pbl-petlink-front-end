@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, Wallet } from "lucide-react";
+import { Wallet } from "lucide-react";
 
 interface Pendapatan {
   id: string;

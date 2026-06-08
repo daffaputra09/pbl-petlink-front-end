@@ -33,7 +33,9 @@ function getChannel(): BroadcastChannel | null {
 export function subscribeChatNotificationBus(listener: BusListener) {
   getChannel();
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function publishChatNotificationBus(event: ChatNotificationBusEvent) {
