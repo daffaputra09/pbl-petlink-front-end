@@ -1,23 +1,9 @@
-import { Booking, BookingStatus } from "@/types/booking";
+import { Booking } from "@/types/booking";
+import { displayStatusBadgeClass } from "@/lib/booking/display-status";
 
 type Props = {
   booking: Booking;
   onClick: (booking: Booking) => void;
-};
-
-const statusConfig: Record<BookingStatus, { label: string; className: string }> = {
-  Terjadwal: {
-    label: "Terjadwal",
-    className: "bg-blue-50 text-blue-600 border border-blue-100",
-  },
-  Selesai: {
-    label: "Selesai",
-    className: "bg-emerald-50 text-emerald-600 border border-emerald-100",
-  },
-  Dibatalkan: {
-    label: "Dibatalkan",
-    className: "bg-red-50 text-red-500 border border-red-100",
-  },
 };
 
 function formatTanggal(tanggal: string): string {
@@ -27,7 +13,11 @@ function formatTanggal(tanggal: string): string {
 }
 
 export default function BookingCard({ booking, onClick }: Props) {
-  const { label, className } = statusConfig[booking.status];
+  const label = booking.displayLabel ?? booking.status;
+  const className = displayStatusBadgeClass(
+    booking.displayKind ?? "terjadwal"
+  );
+  const isHome = booking.channel === "home";
 
   return (
     <button
@@ -36,7 +26,16 @@ export default function BookingCard({ booking, onClick }: Props) {
     >
       {/* Left: Pet Info */}
       <div>
-        <p className="text-sm font-semibold text-gray-800">{booking.namaPasien}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-gray-800">
+            {booking.namaPasien}
+          </p>
+          {isHome && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+              Home Service
+            </span>
+          )}
+        </div>
         <p className="text-xs text-gray-400 mt-0.5">
           {booking.jenis} • {booking.usia}
         </p>

@@ -22,6 +22,12 @@ export function useClinicBookings() {
     setError(null);
     const supabase = createClient();
 
+    try {
+      await supabase.rpc("sync_clinic_bookings_in_progress");
+    } catch {
+      // Migration belum diterapkan — jangan gagalkan fetch.
+    }
+
     const { data, error: fetchError } = await supabase
       .from("bookings")
       .select(BOOKING_LIST_SELECT)

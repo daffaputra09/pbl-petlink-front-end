@@ -91,7 +91,7 @@ export default function BookingPage() {
         b.jamMulai,
         b.jamSelesai,
         b.tanggal,
-        b.status,
+        b.displayLabel ?? b.status,
       ].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");

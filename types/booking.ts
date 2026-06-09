@@ -2,6 +2,16 @@ export type BookingStatus = "Terjadwal" | "Selesai" | "Dibatalkan";
 
 export type JenisKelamin = "Jantan" | "Betina";
 
+export type BookingDisplayKind =
+  | "belumDibayar"
+  | "pembayaranGagal"
+  | "terjadwal"
+  | "dikonfirmasi"
+  | "menungguCheckIn"
+  | "berlangsung"
+  | "selesai"
+  | "dibatalkan";
+
 export type Booking = {
   id: string;
   /** DB fields for mutations (optional on UI-only rows) */
@@ -10,6 +20,13 @@ export type Booking = {
   scheduledStartAt?: string;
   scheduledEndAt?: string;
   customerId?: string;
+  /** Label status detail (selaras petlink). */
+  displayLabel?: string;
+  displayKind?: BookingDisplayKind;
+  visitAddress?: string | null;
+  visitLatitude?: number | null;
+  visitLongitude?: number | null;
+  checkedInAt?: string | null;
   // Pasien
   namaPasien: string;
   jenis: string;        // breed / ras

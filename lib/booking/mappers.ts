@@ -1,5 +1,6 @@
 import type { Booking, BookingStatus, JenisKelamin } from "@/types/booking";
 import { resolveBookingDisplayStatus } from "./display-status";
+import { visitAddressFromNotes } from "./visit-address";
 
 type PetRow = {
   name: string;
@@ -21,7 +22,10 @@ type BookingRow = {
   scheduled_end_at: string;
   channel?: string | null;
   total_amount?: number | null;
-  notes?: string | null;  
+  notes?: string | null;
+  visit_latitude?: number | null;
+  visit_longitude?: number | null;
+  checked_in_at?: string | null;  
   customer_pets: PetRow | PetRow[] | null;
   customer_profiles?:
     | { address: string | null }
@@ -88,19 +92,14 @@ export function mapBookingRow(
 
   const display = resolveBookingDisplayStatus({
     bookingStatus: row.status,
+    channel: row.channel,
     paymentStatus: options?.paymentStatus,
     scheduledStartAt: new Date(row.scheduled_start_at),
     scheduledEndAt: new Date(row.scheduled_end_at),
   });
 
-  const uiStatus: BookingStatus =
-    display.label === "Belum dibayar" ||
-    display.label === "Berlangsung" ||
-    display.label === "Pembayaran gagal"
-      ? display.label === "Pembayaran gagal"
-        ? "Dibatalkan"
-        : "Terjadwal"
-      : (display.label as BookingStatus);
+  const uiStatus: BookingStatus = display.filterStatus;
+  const visitAddress = visitAddressFromNotes(row.notes);
 
 
   const bookingItems = Array.isArray(row.booking_items) ? row.booking_items : [];
@@ -135,6 +134,12 @@ export function mapBookingRow(
     scheduledStartAt: row.scheduled_start_at,
     scheduledEndAt: row.scheduled_end_at,
     channel: row.channel ?? null,
+    displayLabel: display.label,
+    displayKind: display.kind,
+    visitAddress,
+    visitLatitude: row.visit_latitude ?? null,
+    visitLongitude: row.visit_longitude ?? null,
+    checkedInAt: row.checked_in_at ?? null,
     totalAmount,
     catatan: row.notes ?? null,
     namaDokter: namaDokter,
@@ -144,7 +149,8 @@ export function mapBookingRow(
 
 /** Aligns with petlink customer_booking_service — payments fetched separately. */
 export const BOOKING_LIST_SELECT = `
-  id, status, scheduled_start_at, scheduled_end_at, channel, total_amount, notes, customer_id, pet_id,
+  id, status, scheduled_start_at, scheduled_end_at, channel, total_amount, notes,
+  visit_latitude, visit_longitude, checked_in_at, customer_id, pet_id,
   
   customer_pets (
     name, breed, sex, birth_month, birth_year,

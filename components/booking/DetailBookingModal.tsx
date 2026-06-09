@@ -1,8 +1,25 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X, RefreshCw, MapPin, Mail, Phone, User, Stethoscope, Wrench, CreditCard, FileText } from "lucide-react";
+import {
+  X,
+  RefreshCw,
+  MapPin,
+  Mail,
+  Phone,
+  User,
+  Stethoscope,
+  Wrench,
+  CreditCard,
+  FileText,
+  Navigation,
+  Home,
+} from "lucide-react";
 import { Booking, BookingStatus } from "@/types/booking";
+import {
+  displayStatusBadgeClass,
+} from "@/lib/booking/display-status";
+import { googleMapsDirectionsUrl } from "@/lib/booking/visit-address";
 
 type Props = {
   booking: Booking;
@@ -10,21 +27,6 @@ type Props = {
   onUpdateStatus: (id: string, status: BookingStatus) => void;
   onReschedule: (id: string) => void;
   onCancel: (id: string) => void;
-};
-
-const statusConfig: Record<BookingStatus, { label: string; className: string }> = {
-  Terjadwal: {
-    label: "Terjadwal",
-    className: "bg-blue-50 text-blue-600 border border-blue-200",
-  },
-  Selesai: {
-    label: "Selesai",
-    className: "bg-emerald-50 text-emerald-600 border border-emerald-200",
-  },
-  Dibatalkan: {
-    label: "Dibatalkan",
-    className: "bg-red-50 text-red-500 border border-red-200",
-  },
 };
 
 function formatTanggal(tanggal: string): string {
@@ -54,7 +56,30 @@ export default function DetailBookingModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const { label, className } = statusConfig[booking.status];
+  const displayLabel = booking.displayLabel ?? booking.status;
+  const badgeClass = displayStatusBadgeClass(
+    booking.displayKind ?? "terjadwal"
+  );
+  const isHome = booking.channel === "home";
+  const isClinic = booking.channel === "clinic" || !isHome;
+  const canComplete =
+    booking.status === "Terjadwal" &&
+    (booking.rawStatus === "confirmed" ||
+      booking.rawStatus === "in_progress" ||
+      booking.rawStatus === "pending");
+  const canRescheduleOrCancel =
+    booking.status === "Terjadwal" &&
+    booking.rawStatus !== "in_progress" &&
+    booking.rawStatus !== "completed";
+
+  const directionsUrl =
+    isHome
+      ? googleMapsDirectionsUrl({
+          latitude: booking.visitLatitude,
+          longitude: booking.visitLongitude,
+          address: booking.visitAddress,
+        })
+      : null;
 
   return (
     <div
@@ -63,7 +88,6 @@ export default function DetailBookingModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
     >
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -72,31 +96,36 @@ export default function DetailBookingModal({
           <X size={18} />
         </button>
 
-        {/* Title */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-800 text-center">
             Detail Booking
           </h2>
         </div>
 
-        {/* Scrollable Body */}
         <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-          {/* Kategori Badge */}
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-block text-xs font-medium px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
               {booking.kategori}
             </span>
+            {isHome ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
+                <Home size={12} />
+                Home Service
+              </span>
+            ) : (
+              <span className="text-xs font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                Kunjungan Klinik
+              </span>
+            )}
           </div>
 
-          {/* Nama & Jenis */}
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{booking.namaPasien}</h3>
             <p className="text-sm text-gray-500 mt-0.5">{booking.jenis}</p>
           </div>
-          {/* Divider */}
+
           <hr className="border-gray-100" />
 
-          {/* Stats Row */}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Berat</p>
@@ -112,7 +141,6 @@ export default function DetailBookingModal({
             </div>
           </div>
 
-          {/* Jadwal */}
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Jadwal</p>
@@ -121,12 +149,29 @@ export default function DetailBookingModal({
               </p>
               <p className="text-xs text-gray-500">{formatTanggal(booking.tanggal)}</p>
             </div>
-            <span className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${className}`}>
-              {label}
+            <span className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${badgeClass}`}>
+              {displayLabel}
             </span>
           </div>
 
-          {/* Dokter */}
+          {isHome && booking.displayKind === "menungguCheckIn" && (
+            <div className="bg-amber-50 rounded-xl px-4 py-3 border border-amber-100 text-sm text-amber-800">
+              Menunggu dokter check-in di lokasi customer. Status berlangsung dimulai setelah check-in GPS.
+            </div>
+          )}
+
+          {isClinic && booking.displayKind === "berlangsung" && (
+            <div className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-100 text-sm text-sky-800">
+              Kunjungan klinik: status berlangsung diperbarui otomatis saat jadwal dimulai.
+            </div>
+          )}
+
+          {booking.checkedInAt && (
+            <div className="bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-100 text-sm text-emerald-800">
+              Dokter sudah check-in di lokasi customer.
+            </div>
+          )}
+
           {booking.namaDokter && (
             <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
               <Stethoscope size={16} className="text-emerald-600 shrink-0" />
@@ -137,7 +182,6 @@ export default function DetailBookingModal({
             </div>
           )}
 
-          {/* Layanan */}
           {booking.namaLayanan && booking.namaLayanan.length > 0 && (
             <div className="bg-gray-50 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
@@ -157,7 +201,6 @@ export default function DetailBookingModal({
             </div>
           )}
 
-          {/* Total Biaya */}
           {booking.totalAmount != null && booking.totalAmount > 0 && (
             <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
               <CreditCard size={16} className="text-emerald-600 shrink-0" />
@@ -174,18 +217,39 @@ export default function DetailBookingModal({
             </div>
           )}
 
-          {/* Catatan */}
           {booking.catatan && (
             <div className="bg-amber-50 rounded-xl px-4 py-3 flex items-start gap-3 border border-amber-100">
               <FileText size={15} className="text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-amber-500 font-medium mb-0.5">Catatan</p>
-                <p className="text-sm text-gray-700">{booking.catatan}</p>
+                <p className="text-sm text-gray-700 whitespace-pre-line">{booking.catatan}</p>
               </div>
             </div>
           )}
 
-          {/* Informasi Pemilik */}
+          {isHome && booking.visitAddress && (
+            <div className="bg-violet-50 rounded-xl px-4 py-3 border border-violet-100">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin size={14} className="text-violet-600 shrink-0" />
+                <p className="text-[11px] uppercase tracking-wide text-violet-600 font-medium">
+                  Alamat Kunjungan
+                </p>
+              </div>
+              <p className="text-sm text-gray-700 mb-3">{booking.visitAddress}</p>
+              {directionsUrl && (
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-violet-700 hover:text-violet-900"
+                >
+                  <Navigation size={14} />
+                  Buka petunjuk arah
+                </a>
+              )}
+            </div>
+          )}
+
           <div>
             <div className="flex items-center gap-2 mb-3">
               <User size={15} className="text-gray-400" />
@@ -209,23 +273,20 @@ export default function DetailBookingModal({
               </div>
             </div>
           </div>
-
         </div>
-        {/* Action Buttons */}
+
         <div className="px-6 pb-6 pt-3 space-y-3">
-          {/* Update Status - only when Terjadwal */}
-          {booking.status === "Terjadwal" && (
+          {canComplete && (
             <button
               onClick={() => onUpdateStatus(booking.id, "Selesai")}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
             >
               <RefreshCw size={15} />
-              Update Status
+              Tandai Selesai
             </button>
           )}
-          
-          {/* Reschedule & Cancel row */}
-          {booking.status === "Terjadwal" && (
+
+          {canRescheduleOrCancel && (
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => onReschedule(booking.id)}
@@ -242,8 +303,7 @@ export default function DetailBookingModal({
             </div>
           )}
 
-          {/* If already done or cancelled - just close */}
-          {booking.status !== "Terjadwal" && (
+          {!canComplete && !canRescheduleOrCancel && (
             <button
               onClick={onClose}
               className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
