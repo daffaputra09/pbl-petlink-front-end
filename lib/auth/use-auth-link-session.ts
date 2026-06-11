@@ -12,9 +12,34 @@ type HashAuthPayload =
 
 function flowExpiredMessage(flow: AuthLinkFlow): string {
   if (flow === "recovery") {
-    return "Tautan reset sudah kedaluwarsa atau sudah pernah dipakai. Minta tautan baru dari halaman lupa kata sandi. Buka link di jendela incognito jika pernah login sebagai akun lain di browser yang sama.";
+    return "Tautan reset sudah kedaluwarsa atau sudah pernah dipakai. Minta tautan baru dari halaman lupa kata sandi.";
   }
-  return "Tautan undangan sudah kedaluwarsa atau sudah pernah dipakai. Minta klinik mengirim ulang undangan. Buka link di jendela incognito jika pernah login sebagai akun lain.";
+  return "Tautan undangan sudah kedaluwarsa atau sudah pernah dipakai. Minta klinik mengirim ulang undangan.";
+}
+
+function parseQueryError(flow: AuthLinkFlow): string | null {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get("error") === "invalid_link") {
+    return flow === "recovery"
+      ? "Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru."
+      : "Tautan undangan tidak valid atau sudah kedaluwarsa.";
+  }
+
+  const errorCode = params.get("error_code");
+  const error = params.get("error");
+  if (errorCode === "otp_expired" || error === "access_denied") {
+    return flowExpiredMessage(flow);
+  }
+
+  const description = params.get("error_description")?.replace(/\+/g, " ");
+  if (description) {
+    return description;
+  }
+
+  return null;
 }
 
 function parseHashPayload(flow: AuthLinkFlow): HashAuthPayload {
@@ -52,7 +77,14 @@ function clearAuthParamsFromUrl() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   url.hash = "";
-  url.searchParams.delete("error");
+  for (const key of [
+    "error",
+    "error_code",
+    "error_description",
+    "code",
+  ]) {
+    url.searchParams.delete(key);
+  }
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 }
 
@@ -110,17 +142,28 @@ export function useAuthLinkSession(options?: {
     }
 
     async function resolveSession() {
-      const queryError =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("error")
-          : null;
-
-      if (queryError === "invalid_link") {
+      const queryError = parseQueryError(flow);
+      if (queryError) {
         if (!cancelled) {
           setSessionReady(false);
-          setSubmitError(invalidMessage);
+          setSubmitError(queryError);
           setChecking(false);
+          clearAuthParamsFromUrl();
         }
+        return;
+      }
+
+      // PKCE: Supabase redirects with ?code= — must exchange via server callback.
+      const pkceCode =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("code")
+          : null;
+
+      if (pkceCode && typeof window !== "undefined") {
+        const callback = new URL("/auth/callback", window.location.origin);
+        callback.searchParams.set("code", pkceCode);
+        callback.searchParams.set("next", window.location.pathname);
+        window.location.replace(callback.toString());
         return;
       }
 
@@ -137,7 +180,6 @@ export function useAuthLinkSession(options?: {
       }
 
       if (hashPayload.kind === "tokens") {
-        // Implicit flow: clear conflicting portal session, then apply tokens from hash.
         await supabase.auth.signOut({ scope: "global" });
 
         const { error } = await supabase.auth.setSession({
@@ -166,8 +208,7 @@ export function useAuthLinkSession(options?: {
         return;
       }
 
-      // PKCE / accept-invite flow: session was set server-side in /auth/confirm cookies.
-      // Do NOT sign out here — that would destroy the recovery/invite session.
+      // Session from /auth/callback or /auth/confirm (cookies).
       if (await waitForSession(300)) {
         if (!cancelled) {
           setSessionReady(true);

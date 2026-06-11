@@ -1,23 +1,46 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/auth/set-password";
-
   const safeNext = next.startsWith("/") ? next : "/auth/set-password";
 
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (!error) {
-      return NextResponse.redirect(`${origin}${safeNext}`);
-    }
+  if (!code) {
+    return NextResponse.redirect(`${origin}${safeNext}`);
   }
 
-  // PKCE code missing — implicit-flow tokens live in the URL hash (client-only).
-  // Send the user to the target page so the browser can parse #access_token.
-  return NextResponse.redirect(`${origin}${safeNext}`);
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // ignore
+          }
+        },
+      },
+    }
+  );
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (!error) {
+    return NextResponse.redirect(`${origin}${safeNext}`);
+  }
+
+  const fail = new URL(safeNext, origin);
+  fail.searchParams.set("error", "invalid_link");
+  return NextResponse.redirect(fail);
 }
