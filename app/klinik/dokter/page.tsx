@@ -14,7 +14,7 @@ import {
 } from "@/components/klinik/KlinikPageLayout";
 import type { Doctor, DoctorFormInput } from "@/types/dokter";
 import { useClinicDoctors } from "@/hooks/use-clinic-doctors";
-import { inviteDoctor, updateDoctorProfile } from "@/lib/actions/invite-doctor";
+import { inviteDoctor, resendDoctorInvite, updateDoctorProfile } from "@/lib/actions/invite-doctor";
 import { confirmAction } from "@/lib/ui/confirm-store";
 import { notifyError, notifySuccess } from "@/lib/ui/notify";
 
@@ -103,6 +103,15 @@ export default function DokterPage() {
     }
   }
 
+  async function handleResendInvite(id: string) {
+    try {
+      await resendDoctorInvite(id);
+      notifySuccess("Email undangan dikirim ulang.");
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : "Gagal mengirim ulang undangan");
+    }
+  }
+
   return (
     <KlinikPageLayout
       title="Dokter"
@@ -133,6 +142,7 @@ export default function DokterPage() {
               doctors={doctors}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onResendInvite={handleResendInvite}
             />
           </KlinikSectionCard>
         </>

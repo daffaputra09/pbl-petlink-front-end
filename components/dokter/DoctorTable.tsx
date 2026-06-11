@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, Mail, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Doctor } from "@/types/dokter";
 
 interface DoctorTableProps {
   doctors: Doctor[];
   onDelete: (id: string) => void;
   onEdit: (doctor: Doctor) => void;
+  onResendInvite?: (id: string) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -30,6 +31,7 @@ export default function DoctorTable({
   doctors,
   onDelete,
   onEdit,
+  onResendInvite,
 }: DoctorTableProps) {
   const router = useRouter();
   const [page, setPage] = useState(1);
@@ -145,6 +147,17 @@ export default function DoctorTable({
                         <CalendarDays size={14} />
                         Jadwal
                       </button>
+                      {doctor.awaitingPasswordSetup && onResendInvite ? (
+                        <button
+                          type="button"
+                          onClick={() => onResendInvite(doctor.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 transition-colors"
+                          title="Kirim ulang email undangan"
+                        >
+                          <Mail size={14} />
+                          Undang ulang
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => onEdit(doctor)}

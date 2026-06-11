@@ -11,6 +11,7 @@ import { useAuthLinkSession } from "@/lib/auth/use-auth-link-session";
 export default function SetPasswordPage() {
   const { checking, sessionReady, submitError, setSubmitError } =
     useAuthLinkSession({
+      requireDoctor: true,
       invalidMessage:
         "Tautan tidak valid atau sudah kedaluwarsa. Hubungi klinik untuk mengirim ulang undangan.",
     });

@@ -3,17 +3,42 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-function hashHasAuthTokens(): boolean {
-  if (typeof window === "undefined") return false;
-  const hash = window.location.hash.replace(/^#/, "");
-  if (!hash) return false;
-  const params = new URLSearchParams(hash);
-  return (
-    params.has("access_token") ||
-    params.has("refresh_token") ||
-    params.get("type") === "invite" ||
-    params.get("type") === "recovery"
-  );
+type HashAuthPayload =
+  | { kind: "tokens"; accessToken: string; refreshToken: string }
+  | { kind: "error"; message: string }
+  | { kind: "empty" };
+
+function parseHashPayload(): HashAuthPayload {
+  if (typeof window === "undefined") return { kind: "empty" };
+
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+  const error = params.get("error");
+  const errorCode = params.get("error_code");
+  if (error) {
+    if (errorCode === "otp_expired") {
+      return {
+        kind: "error",
+        message:
+          "Tautan sudah kedaluwarsa atau sudah pernah dipakai. Minta klinik mengirim ulang undangan. Buka link di jendela incognito / privat jika pernah login sebagai akun lain.",
+      };
+    }
+    const description = params.get("error_description")?.replace(/\+/g, " ");
+    return {
+      kind: "error",
+      message:
+        description ||
+        "Tautan tidak valid. Minta klinik mengirim ulang undangan.",
+    };
+  }
+
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  if (accessToken && refreshToken) {
+    return { kind: "tokens", accessToken, refreshToken };
+  }
+
+  return { kind: "empty" };
 }
 
 function clearAuthHashFromUrl() {
@@ -24,16 +49,31 @@ function clearAuthHashFromUrl() {
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 }
 
-/**
- * Resolves a Supabase auth session from invite/recovery links.
- * Handles implicit flow (#access_token in hash) and PKCE (?code via callback).
- */
+async function sessionIsDoctor(
+  supabase: ReturnType<typeof createClient>
+): Promise<boolean> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return profile?.role === "doctor";
+}
+
 export function useAuthLinkSession(options?: {
   invalidMessage?: string;
+  requireDoctor?: boolean;
 }) {
   const invalidMessage =
     options?.invalidMessage ??
     "Tautan tidak valid atau sudah kedaluwarsa. Minta tautan baru.";
+  const requireDoctor = options?.requireDoctor ?? false;
 
   const [checking, setChecking] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
@@ -42,48 +82,67 @@ export function useAuthLinkSession(options?: {
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
-    const hasHashTokens = hashHasAuthTokens();
 
-    async function resolveSession() {
+    async function acceptSession(): Promise<boolean> {
+      if (requireDoctor) {
+        return sessionIsDoctor(supabase);
+      }
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      return !!session;
+    }
 
-      if (session && !cancelled) {
-        setSessionReady(true);
-        setSubmitError("");
-        setChecking(false);
-        clearAuthHashFromUrl();
+    async function resolveSession() {
+      const hashPayload = parseHashPayload();
+
+      if (hashPayload.kind === "error") {
+        if (!cancelled) {
+          setSessionReady(false);
+          setSubmitError(hashPayload.message);
+          setChecking(false);
+          clearAuthHashFromUrl();
+        }
         return;
       }
 
-      // Implicit flow: wait for client to parse #access_token from hash.
-      if (hasHashTokens) {
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-        const {
-          data: { session: hashSession },
-        } = await supabase.auth.getSession();
+      // Always clear other accounts (e.g. clinic) before applying invite/recovery link.
+      await supabase.auth.signOut({ scope: "global" });
 
-        if (hashSession && !cancelled) {
+      if (hashPayload.kind === "tokens") {
+        const { error } = await supabase.auth.setSession({
+          access_token: hashPayload.accessToken,
+          refresh_token: hashPayload.refreshToken,
+        });
+
+        if (!error && (await acceptSession()) && !cancelled) {
           setSessionReady(true);
           setSubmitError("");
           setChecking(false);
           clearAuthHashFromUrl();
           return;
         }
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        const {
-          data: { session: retrySession },
-        } = await supabase.auth.getSession();
 
-        if (retrySession && !cancelled) {
-          setSessionReady(true);
-          setSubmitError("");
+        if (!cancelled) {
+          setSessionReady(false);
+          setSubmitError(
+            requireDoctor
+              ? "Tautan undangan dokter tidak valid untuk akun ini."
+              : invalidMessage
+          );
           setChecking(false);
           clearAuthHashFromUrl();
-          return;
         }
+        return;
+      }
+
+      // Session from /auth/confirm (cookies) after server-side verifyOtp.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if ((await acceptSession()) && !cancelled) {
+        setSessionReady(true);
+        setSubmitError("");
+        setChecking(false);
+        return;
       }
 
       if (!cancelled) {
@@ -95,14 +154,16 @@ export function useAuthLinkSession(options?: {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (
-        session &&
-        !cancelled &&
-        (event === "SIGNED_IN" ||
-          event === "INITIAL_SESSION" ||
-          event === "TOKEN_REFRESHED")
+        !session ||
+        cancelled ||
+        !(event === "SIGNED_IN" || event === "INITIAL_SESSION")
       ) {
+        return;
+      }
+
+      if (await acceptSession()) {
         setSessionReady(true);
         setSubmitError("");
         setChecking(false);
@@ -116,7 +177,7 @@ export function useAuthLinkSession(options?: {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [invalidMessage]);
+  }, [invalidMessage, requireDoctor]);
 
   return { checking, sessionReady, submitError, setSubmitError };
 }

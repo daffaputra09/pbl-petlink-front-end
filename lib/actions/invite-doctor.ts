@@ -291,6 +291,51 @@ export async function inviteDoctor(
   return { doctorId: userId };
 }
 
+/** Kirim ulang email undangan untuk dokter yang belum set password. */
+export async function resendDoctorInvite(doctorId: string): Promise<void> {
+  const { clinicId } = await requireClinicSession();
+  const admin = createAdminClient();
+
+  const { data: doc } = await admin
+    .from("doctor_profiles")
+    .select("id, profiles ( name, password_set_at )")
+    .eq("id", doctorId)
+    .eq("clinic_id", clinicId)
+    .maybeSingle();
+
+  if (!doc) throw new Error("Dokter tidak ditemukan.");
+
+  const profiles = doc.profiles as
+    | { name?: string; password_set_at?: string | null }
+    | { name?: string; password_set_at?: string | null }[]
+    | null;
+  const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+
+  if (profile?.password_set_at) {
+    throw new Error("Dokter sudah mengatur kata sandi.");
+  }
+
+  const { data: userData, error: userError } =
+    await admin.auth.admin.getUserById(doctorId);
+  if (userError) throw userError;
+
+  const email = userData.user?.email;
+  if (!email) throw new Error("Email dokter tidak ditemukan.");
+
+  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
+    email,
+    {
+      data: {
+        name: profile?.name ?? userData.user.user_metadata?.name ?? "Dokter",
+        role: "doctor",
+      },
+      redirectTo: doctorSetPasswordRedirectUrl(),
+    }
+  );
+
+  if (inviteError) throw new Error(inviteErrorMessage(inviteError));
+}
+
 export async function updateDoctorProfile(input: {
   doctorId: string;
   name?: string;
