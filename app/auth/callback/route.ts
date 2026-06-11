@@ -6,17 +6,18 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/auth/set-password";
 
+  const safeNext = next.startsWith("/") ? next : "/auth/set-password";
+
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const safeNext = next.startsWith("/") ? next : "/auth/set-password";
       return NextResponse.redirect(`${origin}${safeNext}`);
     }
   }
 
-  const fail = new URL("/auth/set-password", origin);
-  fail.searchParams.set("error", "invalid_link");
-  return NextResponse.redirect(fail);
+  // PKCE code missing — implicit-flow tokens live in the URL hash (client-only).
+  // Send the user to the target page so the browser can parse #access_token.
+  return NextResponse.redirect(`${origin}${safeNext}`);
 }

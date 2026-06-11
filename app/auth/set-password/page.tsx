@@ -1,75 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { CheckCircle2, Loader2, Smartphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthMarketingLayout } from "@/components/auth/AuthMarketingLayout";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { messageFromAuthError } from "@/lib/auth/errors";
+import { useAuthLinkSession } from "@/lib/auth/use-auth-link-session";
 
 export default function SetPasswordPage() {
-  const searchParams = useSearchParams();
-  const [checking, setChecking] = useState(true);
-  const [sessionReady, setSessionReady] = useState(false);
+  const { checking, sessionReady, submitError, setSubmitError } =
+    useAuthLinkSession({
+      invalidMessage:
+        "Tautan tidak valid atau sudah kedaluwarsa. Hubungi klinik untuk mengirim ulang undangan.",
+    });
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    const errorParam = searchParams.get("error");
-    if (errorParam) {
-      setSubmitError(
-        "Tautan tidak valid atau sudah kedaluwarsa. Hubungi klinik untuk mengirim ulang undangan."
-      );
-      setChecking(false);
-      return;
-    }
-
-    async function resolveSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && !cancelled) {
-        setSessionReady(true);
-        setChecking(false);
-        return;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      const { data: { session: retrySession } } = await supabase.auth.getSession();
-      if (!cancelled) {
-        setSessionReady(!!retrySession);
-        if (!retrySession) {
-          setSubmitError(
-            "Tautan tidak valid atau sudah kedaluwarsa. Hubungi klinik untuk mengirim ulang undangan."
-          );
-        }
-        setChecking(false);
-      }
-    }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session && !cancelled) {
-          setSessionReady(true);
-          setSubmitError("");
-          setChecking(false);
-        }
-      }
-    );
-
-    void resolveSession();
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

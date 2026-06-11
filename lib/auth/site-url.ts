@@ -17,9 +17,11 @@ export function authCallbackUrl(nextPath: string): string {
 }
 
 export function doctorSetPasswordRedirectUrl(): string {
-  return authCallbackUrl("/auth/set-password");
+  // Invite links use implicit flow (#access_token in hash). Must land directly on
+  // the client page — /auth/callback is server-side and cannot read the hash.
+  return `${getSiteUrl()}/auth/set-password`;
 }
 
 export function passwordResetRedirectUrl(): string {
-  return authCallbackUrl("/auth/reset-password");
+  return `${getSiteUrl()}/auth/reset-password`;
 }
