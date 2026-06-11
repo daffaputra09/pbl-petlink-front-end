@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { PawPrint, CalendarDays, Stethoscope, Wallet } from "lucide-react";
+import { CalendarDays, Stethoscope, Wallet } from "lucide-react";
+import { PetLinkLogo } from "@/components/brand/PetLinkLogo";
 
 export function AuthMarketingLayout({
   children,
@@ -23,9 +24,7 @@ export function AuthMarketingLayout({
           />
           <div className="relative">
             <Link href="/" className="inline-flex items-center gap-2.5">
-              <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
-                <PawPrint className="w-6 h-6" />
-              </div>
+              <PetLinkLogo variant="full" size={44} />
               <span className="text-xl font-bold tracking-tight">PetLink</span>
             </Link>
           </div>
@@ -63,9 +62,7 @@ export function AuthMarketingLayout({
               href="/"
               className="inline-flex items-center gap-2 text-emerald-700 font-semibold"
             >
-              <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
-                <PawPrint className="w-5 h-5" />
-              </div>
+              <PetLinkLogo variant="full" size={36} className="rounded-lg" />
               PetLink Klinik
             </Link>
         </div>

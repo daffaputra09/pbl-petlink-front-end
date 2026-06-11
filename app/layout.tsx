@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   title: "PetLink — Platform Kesehatan Hewan Peliharaan",
   description:
     "PetLink menghubungkan pemilik hewan, klinik, dan dokter hewan. Booking layanan, konsultasi online, chat, dan pembayaran digital dalam satu platform.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

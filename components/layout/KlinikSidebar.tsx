@@ -1,7 +1,7 @@
 "use client";
 
-import { PawPrint } from 'lucide-react';
 import Link from "next/link";
+import { PetLinkLogo } from "@/components/brand/PetLinkLogo";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -34,10 +34,7 @@ export default function KlinikSidebar() {
       <div>
         {/* LOGO */}
         <div className="flex flex-col items-center pt-10 pb-10">
-          {}
-          <div className="w-16 h-16 flex items-center justify-center mb-3">
-            <PawPrint className="w-20 h-20 text-green-200 fill-current" />
-          </div>
+          <PetLinkLogo variant="white" size={72} className="mb-3" />
           <h1 className="text-2xl font-bold tracking-wide">PetLink</h1>
         </div>
 
