@@ -11,12 +11,14 @@ import {
   Wallet,
   MessageCircle,
   Settings,
+  History,
 } from "lucide-react";
 
 const menus = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/klinik/dashboard" },
   { name: "Dokter",    icon: Stethoscope,     href: "/klinik/dokter"    },
   { name: "Booking",   icon: CalendarDays,    href: "/klinik/booking"   },
+  { name: "Riwayat",   icon: History,         href: "/klinik/riwayat"   },
   { name: "Layanan",   icon: HeartHandshake,  href: "/klinik/layanan"   },
   { name: "Keuangan",  icon: Wallet,          href: "/klinik/keuangan"  },
   { name: "Pesan",     icon: MessageCircle,   href: "/klinik/pesan"     },

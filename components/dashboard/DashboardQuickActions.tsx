@@ -8,6 +8,7 @@ import {
   Wallet,
   MessageCircle,
   ArrowDownToLine,
+  History,
 } from "lucide-react";
 
 const ACTIONS = [
@@ -31,6 +32,13 @@ const ACTIONS = [
     description: "Kelola tim medis",
     icon: Stethoscope,
     accent: "bg-sky-50 text-sky-700",
+  },
+  {
+    href: "/klinik/riwayat",
+    label: "Riwayat",
+    description: "Arsip konsultasi & booking",
+    icon: History,
+    accent: "bg-indigo-50 text-indigo-700",
   },
   {
     href: "/klinik/keuangan",
