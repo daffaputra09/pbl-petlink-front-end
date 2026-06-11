@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent } from "@supabase/supabase-js";
 
 type AuthLinkFlow = "invite" | "recovery";
 
-type HashAuthPayload =
-  | { kind: "tokens"; accessToken: string; refreshToken: string }
-  | { kind: "error"; message: string }
-  | { kind: "empty" };
+// All auth events that carry a valid session we can use.
+const VALID_SESSION_EVENTS: AuthChangeEvent[] = [
+  "INITIAL_SESSION",
+  "SIGNED_IN",
+  "TOKEN_REFRESHED",
+  // PKCE recovery flow fires this instead of SIGNED_IN
+  "PASSWORD_RECOVERY",
+];
 
 function flowExpiredMessage(flow: AuthLinkFlow): string {
   if (flow === "recovery") {
@@ -19,90 +24,59 @@ function flowExpiredMessage(flow: AuthLinkFlow): string {
 
 function parseQueryError(flow: AuthLinkFlow): string | null {
   if (typeof window === "undefined") return null;
-
   const params = new URLSearchParams(window.location.search);
 
-  if (params.get("error") === "invalid_link") {
+  const errorCode = params.get("error_code");
+  const error = params.get("error");
+
+  if (error === "invalid_link") {
     return flow === "recovery"
       ? "Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru."
       : "Tautan undangan tidak valid atau sudah kedaluwarsa.";
   }
-
-  const errorCode = params.get("error_code");
-  const error = params.get("error");
   if (errorCode === "otp_expired" || error === "access_denied") {
     return flowExpiredMessage(flow);
   }
-
   const description = params.get("error_description")?.replace(/\+/g, " ");
-  if (description) {
-    return description;
-  }
-
+  if (description) return description;
   return null;
 }
 
-function parseHashPayload(flow: AuthLinkFlow): HashAuthPayload {
-  if (typeof window === "undefined") return { kind: "empty" };
-
+function parseHashError(flow: AuthLinkFlow): string | null {
+  if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-
   const error = params.get("error");
+  if (!error) return null;
   const errorCode = params.get("error_code");
-  if (error) {
-    if (errorCode === "otp_expired") {
-      return { kind: "error", message: flowExpiredMessage(flow) };
-    }
-    const description = params.get("error_description")?.replace(/\+/g, " ");
-    return {
-      kind: "error",
-      message:
-        description ||
-        (flow === "recovery"
-          ? "Tautan reset tidak valid. Minta tautan baru."
-          : "Tautan undangan tidak valid. Minta klinik mengirim ulang."),
-    };
-  }
+  if (errorCode === "otp_expired") return flowExpiredMessage(flow);
+  const description = params.get("error_description")?.replace(/\+/g, " ");
+  return (
+    description ||
+    (flow === "recovery"
+      ? "Tautan reset tidak valid. Minta tautan baru."
+      : "Tautan undangan tidak valid. Minta klinik mengirim ulang.")
+  );
+}
 
-  const accessToken = params.get("access_token");
-  const refreshToken = params.get("refresh_token");
-  if (accessToken && refreshToken) {
-    return { kind: "tokens", accessToken, refreshToken };
-  }
-
-  return { kind: "empty" };
+function parseHashTokens(): {
+  accessToken: string;
+  refreshToken: string;
+} | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const at = params.get("access_token");
+  const rt = params.get("refresh_token");
+  return at && rt ? { accessToken: at, refreshToken: rt } : null;
 }
 
 function clearAuthParamsFromUrl() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   url.hash = "";
-  for (const key of [
-    "error",
-    "error_code",
-    "error_description",
-    "code",
-  ]) {
+  for (const key of ["error", "error_code", "error_description", "code"]) {
     url.searchParams.delete(key);
   }
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-}
-
-async function sessionIsDoctor(
-  supabase: ReturnType<typeof createClient>
-): Promise<boolean> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return profile?.role === "doctor";
 }
 
 export function useAuthLinkSession(options?: {
@@ -122,136 +96,130 @@ export function useAuthLinkSession(options?: {
   const [sessionReady, setSessionReady] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
+  // Prevent race: only the first resolve wins.
+  const resolvedRef = useRef(false);
+
   useEffect(() => {
+    resolvedRef.current = false;
+
     const supabase = createClient();
     let cancelled = false;
 
-    async function acceptSession(): Promise<boolean> {
-      if (requireDoctor) {
-        return sessionIsDoctor(supabase);
-      }
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      return !!session;
+    function accept() {
+      if (cancelled || resolvedRef.current) return;
+      resolvedRef.current = true;
+      setSessionReady(true);
+      setSubmitError("");
+      setChecking(false);
+      clearAuthParamsFromUrl();
     }
 
-    async function waitForSession(ms: number): Promise<boolean> {
-      await new Promise((resolve) => setTimeout(resolve, ms));
-      return acceptSession();
+    function reject(message: string) {
+      if (cancelled || resolvedRef.current) return;
+      resolvedRef.current = true;
+      setSessionReady(false);
+      setSubmitError(message);
+      setChecking(false);
+      clearAuthParamsFromUrl();
+    }
+
+    // Verify the current session via getUser() (API call — reliable after PKCE cookie exchange).
+    async function verifyCurrentUser(): Promise<boolean> {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (error || !user) return false;
+
+      if (requireDoctor) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        return profile?.role === "doctor";
+      }
+      return true;
     }
 
     async function resolveSession() {
+      // 1. Error params in query string (?error_code=otp_expired, etc.)
       const queryError = parseQueryError(flow);
       if (queryError) {
-        if (!cancelled) {
-          setSessionReady(false);
-          setSubmitError(queryError);
-          setChecking(false);
-          clearAuthParamsFromUrl();
-        }
+        reject(queryError);
         return;
       }
 
-      // PKCE: Supabase redirects with ?code= — must exchange via server callback.
+      // 2. Error in URL hash (#error=access_denied, etc.)
+      const hashError = parseHashError(flow);
+      if (hashError) {
+        reject(hashError);
+        return;
+      }
+
+      // 3. PKCE code landed directly on this page (edge case).
+      //    Redirect to /auth/callback to exchange it server-side.
       const pkceCode =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("code")
           : null;
-
-      if (pkceCode && typeof window !== "undefined") {
-        const callback = new URL("/auth/callback", window.location.origin);
-        callback.searchParams.set("code", pkceCode);
-        callback.searchParams.set("next", window.location.pathname);
-        window.location.replace(callback.toString());
+      if (pkceCode) {
+        const cb = new URL("/auth/callback", window.location.origin);
+        cb.searchParams.set("code", pkceCode);
+        cb.searchParams.set("next", window.location.pathname);
+        window.location.replace(cb.toString());
         return;
       }
 
-      const hashPayload = parseHashPayload(flow);
-
-      if (hashPayload.kind === "error") {
-        if (!cancelled) {
-          setSessionReady(false);
-          setSubmitError(hashPayload.message);
-          setChecking(false);
-          clearAuthParamsFromUrl();
-        }
-        return;
-      }
-
-      if (hashPayload.kind === "tokens") {
+      // 4. Implicit flow: tokens in hash (#access_token=...).
+      const hashTokens = parseHashTokens();
+      if (hashTokens) {
+        // Sign out any conflicting portal session first.
         await supabase.auth.signOut({ scope: "global" });
-
         const { error } = await supabase.auth.setSession({
-          access_token: hashPayload.accessToken,
-          refresh_token: hashPayload.refreshToken,
+          access_token: hashTokens.accessToken,
+          refresh_token: hashTokens.refreshToken,
         });
-
-        if (!error && (await acceptSession()) && !cancelled) {
-          setSessionReady(true);
-          setSubmitError("");
-          setChecking(false);
-          clearAuthParamsFromUrl();
-          return;
-        }
-
-        if (!cancelled) {
-          setSessionReady(false);
-          setSubmitError(
+        if (!error && !cancelled && (await verifyCurrentUser())) {
+          accept();
+        } else if (!cancelled) {
+          reject(
             requireDoctor
               ? "Tautan undangan dokter tidak valid untuk akun ini."
               : invalidMessage
           );
-          setChecking(false);
-          clearAuthParamsFromUrl();
         }
         return;
       }
 
-      // Session from /auth/callback or /auth/confirm (cookies).
-      if (await waitForSession(300)) {
-        if (!cancelled) {
-          setSessionReady(true);
-          setSubmitError("");
-          setChecking(false);
-          clearAuthParamsFromUrl();
+      // 5. PKCE exchange was done server-side in /auth/callback.
+      //    Session is in cookies — getUser() will confirm via API call.
+      //    Try immediately, then with increasing delays.
+      for (const ms of [0, 400, 1200, 2500]) {
+        if (cancelled || resolvedRef.current) return;
+        if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+        if (cancelled || resolvedRef.current) return;
+        if (await verifyCurrentUser()) {
+          accept();
+          return;
         }
-        return;
       }
 
-      if (await waitForSession(900)) {
-        if (!cancelled) {
-          setSessionReady(true);
-          setSubmitError("");
-          setChecking(false);
-          clearAuthParamsFromUrl();
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setSessionReady(false);
-        setSubmitError(invalidMessage);
-        setChecking(false);
+      if (!cancelled && !resolvedRef.current) {
+        reject(invalidMessage);
       }
     }
 
+    // Subscribe FIRST so we don't miss early events.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (
-        !session ||
-        cancelled ||
-        !(event === "SIGNED_IN" || event === "INITIAL_SESSION")
-      ) {
-        return;
-      }
+      if (cancelled || resolvedRef.current) return;
+      if (!session || !VALID_SESSION_EVENTS.includes(event)) return;
 
-      if (await acceptSession()) {
-        setSessionReady(true);
-        setSubmitError("");
-        setChecking(false);
-        clearAuthParamsFromUrl();
+      // For PASSWORD_RECOVERY (PKCE recovery), accept immediately if session is present.
+      if (await verifyCurrentUser()) {
+        accept();
       }
     });
 
@@ -261,7 +229,7 @@ export function useAuthLinkSession(options?: {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [invalidMessage, requireDoctor, flow]);
+  }, [flow, invalidMessage, requireDoctor]);
 
   return { checking, sessionReady, submitError, setSubmitError };
 }
