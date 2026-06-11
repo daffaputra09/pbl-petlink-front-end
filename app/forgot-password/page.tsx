@@ -69,8 +69,10 @@ export default function ForgotPasswordPage() {
               </h1>
               <p className="text-sm text-gray-600 mt-2 leading-relaxed">
                 Jika <strong>{email.trim()}</strong> terdaftar, Anda akan
-                menerima email berisi tautan untuk mengatur kata sandi baru.
-                Periksa folder spam jika tidak muncul dalam beberapa menit.
+                menerima email berisi tautan reset. Klik tombol di email, lalu
+                pilih <strong>Lanjutkan Reset Password</strong> pada halaman
+                berikutnya. Gunakan jendela incognito jika browser pernah login
+                sebagai akun lain.
               </p>
               <Link
                 href="/login"

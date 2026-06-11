@@ -23,5 +23,11 @@ export function doctorSetPasswordRedirectUrl(): string {
 }
 
 export function passwordResetRedirectUrl(): string {
+  // Fallback for default Supabase email (implicit hash flow).
   return `${getSiteUrl()}/auth/reset-password`;
+}
+
+/** Used in custom recovery email template (accept-invite landing). */
+export function passwordRecoveryAcceptPath(): string {
+  return "/auth/accept-invite?type=recovery&next=/auth/reset-password";
 }

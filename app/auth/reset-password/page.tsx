@@ -13,6 +13,7 @@ import { useAuthLinkSession } from "@/lib/auth/use-auth-link-session";
 export default function ResetPasswordPage() {
   const { checking, sessionReady, submitError, setSubmitError } =
     useAuthLinkSession({
+      flow: "recovery",
       invalidMessage:
         "Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru dari halaman lupa kata sandi.",
     });
