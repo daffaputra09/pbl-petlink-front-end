@@ -24,7 +24,17 @@ export function passwordResetRedirectUrl(): string {
   return authCallbackUrl("/auth/reset-password");
 }
 
-/** Used in custom recovery email template (accept-invite landing). */
+/** Landing page before OTP verify — matches invite/recovery email templates. */
+export function doctorInviteAcceptUrl(): string {
+  return `${getSiteUrl()}/auth/accept-invite?type=invite&next=${encodeURIComponent("/auth/set-password")}`;
+}
+
+/** Landing page before OTP verify — matches recovery email template. */
+export function passwordRecoveryAcceptUrl(): string {
+  return `${getSiteUrl()}/auth/accept-invite?type=recovery&next=${encodeURIComponent("/auth/reset-password")}`;
+}
+
+/** @deprecated Use passwordRecoveryAcceptUrl() */
 export function passwordRecoveryAcceptPath(): string {
   return "/auth/accept-invite?type=recovery&next=/auth/reset-password";
 }

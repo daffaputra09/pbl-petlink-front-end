@@ -16,8 +16,10 @@ import DoctorTimeOffModal, {
 import ScheduleAgendaLegend from "@/components/dokter/ScheduleAgendaLegend";
 import ScheduleBookedItem from "@/components/dokter/ScheduleBookedItem";
 import ScheduleConsultationDetailModal from "@/components/dokter/ScheduleConsultationDetailModal";
+import AssignDoctorModal from "@/components/booking/AssignDoctorModal";
 import DetailBookingModal from "@/components/booking/DetailBookingModal";
 import RescheduleBookingModal from "@/components/booking/RescheduleBookingModal";
+import type { BookingDbStatus } from "@/lib/booking/clinic-status-transitions";
 import {
   KlinikPageLayout,
   KlinikPageLoading,
@@ -31,7 +33,7 @@ import {
 } from "@/hooks/use-clinic-doctors";
 import { useClinicBookings } from "@/hooks/use-clinic-bookings";
 import type { DoctorScheduleEntry } from "@/types/dokter";
-import type { Booking, BookingStatus } from "@/types/booking";
+import type { Booking } from "@/types/booking";
 import type { ConsultationScheduleDetail } from "@/types/schedule-detail";
 import {
   createDoctorTimeOff,
@@ -249,7 +251,9 @@ export default function JadwalDokterPage() {
   const doctorId = searchParams.get("doctorId");
   const { doctors } = useClinicDoctors();
   const { schedules, loading, refresh } = useClinicDoctorBookedSchedules();
-  const { updateStatus, reschedule } = useClinicBookings({ listEnabled: false });
+  const { updateBookingStatus, reschedule, assignDoctor } = useClinicBookings({
+    listEnabled: false,
+  });
 
   const [tab, setTab] = useState<JadwalTab>("Libur");
   const [modalOpen, setModalOpen] = useState(false);
@@ -261,6 +265,9 @@ export default function JadwalDokterPage() {
     useState<ConsultationScheduleDetail | null>(null);
   const [consultationLoading, setConsultationLoading] = useState(false);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(
+    null
+  );
+  const [assignDoctorBooking, setAssignDoctorBooking] = useState<Booking | null>(
     null
   );
 
@@ -330,16 +337,36 @@ export default function JadwalDokterPage() {
     }
   }
 
-  const handleUpdateStatus = async (id: string, status: BookingStatus) => {
-    try {
-      await updateStatus(id, status);
-      setSelectedBooking((prev) =>
-        prev && prev.id === id ? { ...prev, status } : prev
-      );
-      await refresh();
-    } catch (e) {
-      notifyError(e instanceof Error ? e.message : "Gagal memperbarui status");
+  const bookingScheduleIso = (booking: Booking) => {
+    const start =
+      booking.scheduledStartAt ??
+      new Date(`${booking.tanggal}T${booking.jamMulai}:00`).toISOString();
+    const end =
+      booking.scheduledEndAt ??
+      new Date(`${booking.tanggal}T${booking.jamSelesai}:00`).toISOString();
+    return { scheduledStartAt: start, scheduledEndAt: end };
+  };
+
+  const handleUpdateBookingStatus = async (
+    id: string,
+    status: BookingDbStatus
+  ) => {
+    await updateBookingStatus(id, status);
+    setSelectedBooking(null);
+    await refresh();
+  };
+
+  const handleAssignDoctor = async (id: string, doctorId: string) => {
+    const booking =
+      assignDoctorBooking ??
+      (selectedBooking?.id === id ? selectedBooking : null);
+    if (!booking) {
+      throw new Error("Data booking tidak ditemukan.");
     }
+    await assignDoctor(id, doctorId, bookingScheduleIso(booking));
+    setAssignDoctorBooking(null);
+    setSelectedBooking(null);
+    await refresh();
   };
 
   const handleSubmitReschedule = async (
@@ -552,18 +579,19 @@ export default function JadwalDokterPage() {
         <DetailBookingModal
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
-          onUpdateStatus={handleUpdateStatus}
+          onUpdateBookingStatus={handleUpdateBookingStatus}
           onReschedule={(id) => {
-            const b =
-              selectedBooking.id === id
-                ? selectedBooking
-                : null;
-            if (b) {
+            if (selectedBooking?.id === id) {
               setSelectedBooking(null);
-              setRescheduleBooking(b);
+              setRescheduleBooking(selectedBooking);
             }
           }}
-          onCancel={(id) => handleUpdateStatus(id, "Dibatalkan")}
+          onAssignDoctor={(id) => {
+            if (selectedBooking?.id === id) {
+              setSelectedBooking(null);
+              setAssignDoctorBooking(selectedBooking);
+            }
+          }}
         />
       ) : null}
 
@@ -572,6 +600,14 @@ export default function JadwalDokterPage() {
           booking={rescheduleBooking}
           onClose={() => setRescheduleBooking(null)}
           onSubmit={handleSubmitReschedule}
+        />
+      ) : null}
+
+      {assignDoctorBooking ? (
+        <AssignDoctorModal
+          booking={assignDoctorBooking}
+          onClose={() => setAssignDoctorBooking(null)}
+          onSubmit={handleAssignDoctor}
         />
       ) : null}
 

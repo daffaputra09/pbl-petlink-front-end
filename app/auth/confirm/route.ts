@@ -1,9 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { type EmailOtpType } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function GET(request: Request) {
+const ALLOWED_TYPES = new Set<EmailOtpType>(["invite", "recovery"]);
+
+export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
@@ -14,27 +15,28 @@ export async function GET(request: Request) {
   const failUrl = new URL(safeNext, origin);
   failUrl.searchParams.set("error", "invalid_link");
 
-  if (!tokenHash || !type) {
+  if (!tokenHash || !type || !ALLOWED_TYPES.has(type)) {
     return NextResponse.redirect(failUrl);
   }
 
-  const cookieStore = await cookies();
+  let response = NextResponse.redirect(successUrl);
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Route handler may run in read-only context; redirect still works.
-          }
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          response = NextResponse.redirect(successUrl);
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -52,5 +54,5 @@ export async function GET(request: Request) {
     return NextResponse.redirect(failUrl);
   }
 
-  return NextResponse.redirect(successUrl);
+  return response;
 }

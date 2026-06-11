@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { AuthChangeEvent } from "@supabase/supabase-js";
+import type { AuthChangeEvent, EmailOtpType } from "@supabase/supabase-js";
 
 type AuthLinkFlow = "invite" | "recovery";
 
@@ -69,14 +69,37 @@ function parseHashTokens(): {
   return at && rt ? { accessToken: at, refreshToken: rt } : null;
 }
 
+const AUTH_QUERY_KEYS = [
+  "error",
+  "error_code",
+  "error_description",
+  "code",
+  "token_hash",
+  "type",
+  "token",
+] as const;
+
 function clearAuthParamsFromUrl() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   url.hash = "";
-  for (const key of ["error", "error_code", "error_description", "code"]) {
+  for (const key of AUTH_QUERY_KEYS) {
     url.searchParams.delete(key);
   }
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
+function parseTokenHashFromQuery(): {
+  tokenHash: string;
+  type: EmailOtpType;
+} | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const tokenHash = params.get("token_hash") ?? params.get("token");
+  const type = params.get("type") as EmailOtpType | null;
+  if (!tokenHash || !type) return null;
+  if (type !== "invite" && type !== "recovery") return null;
+  return { tokenHash, type };
 }
 
 export function useAuthLinkSession(options?: {
@@ -168,6 +191,30 @@ export function useAuthLinkSession(options?: {
         cb.searchParams.set("code", pkceCode);
         cb.searchParams.set("next", window.location.pathname);
         window.location.replace(cb.toString());
+        return;
+      }
+
+      // 3b. Email OTP token_hash on this page (fallback if /auth/confirm cookies failed).
+      const otpParams = parseTokenHashFromQuery();
+      if (otpParams) {
+        await supabase.auth.signOut({ scope: "global" });
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: otpParams.tokenHash,
+          type: otpParams.type,
+        });
+        if (!error && !cancelled && (await verifyCurrentUser())) {
+          accept();
+          return;
+        }
+        if (!cancelled) {
+          reject(
+            error?.message?.includes("expired")
+              ? flowExpiredMessage(flow)
+              : requireDoctor
+                ? "Tautan undangan dokter tidak valid untuk akun ini."
+                : invalidMessage
+          );
+        }
         return;
       }
 

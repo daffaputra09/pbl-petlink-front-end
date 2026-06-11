@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Mail, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  CalendarDays,
+  Mail,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  UserX,
+  Search,
+} from "lucide-react";
 import type { Doctor } from "@/types/dokter";
 
 interface DoctorTableProps {
   doctors: Doctor[];
-  onDelete: (id: string) => void;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  onDeactivate: (doctor: Doctor) => void;
+  onPermanentDelete: (doctor: Doctor) => void;
   onEdit: (doctor: Doctor) => void;
   onResendInvite?: (id: string) => void;
 }
@@ -29,7 +41,10 @@ const PAGE_SIZE = 5;
 
 export default function DoctorTable({
   doctors,
-  onDelete,
+  searchQuery,
+  onSearchQueryChange,
+  onDeactivate,
+  onPermanentDelete,
   onEdit,
   onResendInvite,
 }: DoctorTableProps) {
@@ -38,8 +53,34 @@ export default function DoctorTable({
   const totalPages = Math.max(1, Math.ceil(doctors.length / PAGE_SIZE));
   const paginated = doctors.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, doctors.length]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   return (
     <>
+      <div className="border-b border-gray-100 px-5 py-4">
+        <div className="relative max-w-md">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+            placeholder="Cari nama, email, spesialisasi, atau STR..."
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+          />
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -68,7 +109,9 @@ export default function DoctorTable({
             {paginated.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-16 text-gray-400">
-                  Belum ada dokter terdaftar.
+                  {searchQuery.trim()
+                    ? "Tidak ada dokter yang cocok dengan pencarian."
+                    : "Belum ada dokter terdaftar."}
                 </td>
               </tr>
             ) : (
@@ -166,14 +209,25 @@ export default function DoctorTable({
                       >
                         <Pencil size={16} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(doctor.id)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Nonaktifkan"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {doctor.isActive ? (
+                        <button
+                          type="button"
+                          onClick={() => onDeactivate(doctor)}
+                          className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Nonaktifkan"
+                        >
+                          <UserX size={16} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onPermanentDelete(doctor)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Hapus permanen"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

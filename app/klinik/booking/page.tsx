@@ -11,8 +11,10 @@ import {
   X,
 } from "lucide-react";
 import BookingList from "@/components/booking/BookingList";
+import AssignDoctorModal from "@/components/booking/AssignDoctorModal";
 import DetailBookingModal from "@/components/booking/DetailBookingModal";
 import RescheduleBookingModal from "@/components/booking/RescheduleBookingModal";
+import type { BookingDbStatus } from "@/lib/booking/clinic-status-transitions";
 import {
   KlinikPageLayout,
   KlinikPageAlert,
@@ -41,6 +43,9 @@ export default function BookingPage() {
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(
     null
   );
+  const [assignDoctorBooking, setAssignDoctorBooking] = useState<Booking | null>(
+    null
+  );
   const [exporting, setExporting] = useState(false);
 
   const {
@@ -53,8 +58,9 @@ export default function BookingPage() {
     stats,
     statsLoading,
     loadMore,
-    updateStatus,
+    updateBookingStatus,
     reschedule,
+    assignDoctor,
     isSearchMode,
   } = useClinicBookings({
     statusFilter: activeFilter,
@@ -75,15 +81,32 @@ export default function BookingPage() {
     return `${bookings.length} booking ditampilkan`;
   }, [loading, isSearchMode, bookings.length, totalCount]);
 
-  const handleUpdateStatus = async (id: string, status: BookingStatus) => {
-    try {
-      await updateStatus(id, status);
-      setSelectedBooking((prev) =>
-        prev && prev.id === id ? { ...prev, status } : prev
-      );
-    } catch (e) {
-      notifyError(e instanceof Error ? e.message : "Gagal memperbarui status");
+  const bookingScheduleIso = (booking: Booking) => {
+    const start =
+      booking.scheduledStartAt ??
+      new Date(`${booking.tanggal}T${booking.jamMulai}:00`).toISOString();
+    const end =
+      booking.scheduledEndAt ??
+      new Date(`${booking.tanggal}T${booking.jamSelesai}:00`).toISOString();
+    return { scheduledStartAt: start, scheduledEndAt: end };
+  };
+
+  const handleUpdateBookingStatus = async (
+    id: string,
+    status: BookingDbStatus
+  ) => {
+    await updateBookingStatus(id, status);
+    setSelectedBooking(null);
+  };
+
+  const handleAssignDoctor = async (id: string, doctorId: string) => {
+    const booking =
+      assignDoctorBooking ?? bookings.find((b) => b.id === id) ?? null;
+    if (!booking) {
+      throw new Error("Data booking tidak ditemukan.");
     }
+    await assignDoctor(id, doctorId, bookingScheduleIso(booking));
+    setAssignDoctorBooking(null);
   };
 
   const handleSubmitReschedule = async (
@@ -335,15 +358,21 @@ export default function BookingPage() {
         <DetailBookingModal
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
-          onUpdateStatus={handleUpdateStatus}
+          onUpdateBookingStatus={handleUpdateBookingStatus}
           onReschedule={(id) => {
-            const b = bookings.find((x) => x.id === id);
-            if (b) {
+            const b = bookings.find((x) => x.id === id) ?? selectedBooking;
+            if (b.id === id) {
               setSelectedBooking(null);
               setRescheduleBooking(b);
             }
           }}
-          onCancel={(id) => handleUpdateStatus(id, "Dibatalkan")}
+          onAssignDoctor={(id) => {
+            const b = bookings.find((x) => x.id === id) ?? selectedBooking;
+            if (b.id === id) {
+              setSelectedBooking(null);
+              setAssignDoctorBooking(b);
+            }
+          }}
         />
       )}
 
@@ -352,6 +381,14 @@ export default function BookingPage() {
           booking={rescheduleBooking}
           onClose={() => setRescheduleBooking(null)}
           onSubmit={handleSubmitReschedule}
+        />
+      )}
+
+      {assignDoctorBooking && (
+        <AssignDoctorModal
+          booking={assignDoctorBooking}
+          onClose={() => setAssignDoctorBooking(null)}
+          onSubmit={handleAssignDoctor}
         />
       )}
     </KlinikPageLayout>

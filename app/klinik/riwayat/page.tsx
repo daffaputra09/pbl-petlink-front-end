@@ -386,9 +386,9 @@ export default function RiwayatPage() {
         <DetailBookingModal
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
-          onUpdateStatus={() => {}}
+          onUpdateBookingStatus={async () => {}}
           onReschedule={() => {}}
-          onCancel={() => {}}
+          onAssignDoctor={() => {}}
         />
       ) : null}
 

@@ -21,8 +21,14 @@ import {
   MessageCircle,
   Loader2,
 } from "lucide-react";
-import { Booking, BookingStatus } from "@/types/booking";
+import { Booking } from "@/types/booking";
 import { displayStatusBadgeClass } from "@/lib/booking/display-status";
+import {
+  type BookingDbStatus,
+  canClinicAssignDoctor,
+  canClinicReschedule,
+  getClinicStatusTransitions,
+} from "@/lib/booking/clinic-status-transitions";
 import { googleMapsDirectionsUrl } from "@/lib/booking/visit-address";
 import { getCustomerContact } from "@/lib/actions/lookup-customer";
 import { useClinicSession } from "@/lib/auth/clinic-session";
@@ -44,9 +50,12 @@ import {
 type Props = {
   booking: Booking;
   onClose: () => void;
-  onUpdateStatus: (id: string, status: BookingStatus) => void;
+  onUpdateBookingStatus: (
+    id: string,
+    status: BookingDbStatus
+  ) => Promise<void>;
   onReschedule: (id: string) => void;
-  onCancel: (id: string) => void;
+  onAssignDoctor: (id: string) => void;
 };
 
 function InfoRow({
@@ -82,9 +91,9 @@ function InfoRow({
 export default function DetailBookingModal({
   booking,
   onClose,
-  onUpdateStatus,
+  onUpdateBookingStatus,
   onReschedule,
-  onCancel,
+  onAssignDoctor,
 }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -92,6 +101,10 @@ export default function DetailBookingModal({
   const [contactLoading, setContactLoading] = useState(false);
   const [chatCustomerLoading, setChatCustomerLoading] = useState(false);
   const [chatDoctorLoading, setChatDoctorLoading] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<BookingDbStatus | "">(
+    ""
+  );
   const [email, setEmail] = useState(booking.emailPemilik);
   const [phone, setPhone] = useState(booking.telpPemilik);
 
@@ -139,15 +152,12 @@ export default function DetailBookingModal({
     booking.displayKind ?? "terjadwal"
   );
   const isHome = booking.channel === "home";
-  const canComplete =
-    booking.status === "Terjadwal" &&
-    (booking.rawStatus === "confirmed" ||
-      booking.rawStatus === "in_progress" ||
-      booking.rawStatus === "pending");
-  const canRescheduleOrCancel =
-    booking.status === "Terjadwal" &&
-    booking.rawStatus !== "in_progress" &&
-    booking.rawStatus !== "completed";
+  const statusTransitions = getClinicStatusTransitions(booking);
+  const selectedTransition = statusTransitions.find(
+    (t) => t.value === selectedStatus
+  );
+  const canReschedule = canClinicReschedule(booking);
+  const canAssignDoctor = canClinicAssignDoctor(booking);
 
   const directionsUrl = isHome
     ? googleMapsDirectionsUrl({
@@ -180,6 +190,29 @@ export default function DetailBookingModal({
       notifyError(e instanceof Error ? e.message : "Gagal membuka chat");
     } finally {
       setChatCustomerLoading(false);
+    }
+  }
+
+  async function handleStatusUpdate() {
+    if (!selectedStatus) return;
+    const transition = statusTransitions.find((t) => t.value === selectedStatus);
+    if (!transition) return;
+
+    const confirmMessage = transition.destructive
+      ? "Batalkan booking ini? Slot dokter akan dilepas."
+      : `Ubah status menjadi "${transition.label}"?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setStatusUpdating(true);
+    try {
+      await onUpdateBookingStatus(booking.id, selectedStatus);
+      setSelectedStatus("");
+      onClose();
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : "Gagal memperbarui status");
+    } finally {
+      setStatusUpdating(false);
     }
   }
 
@@ -268,10 +301,10 @@ export default function DetailBookingModal({
             </div>
           )}
 
-          {!isHome && booking.displayKind === "berlangsung" && (
+          {!isHome && booking.rawStatus === "in_progress" && (
             <div className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-100 text-sm text-sky-800">
-              Kunjungan klinik: status berlangsung diperbarui otomatis saat
-              jadwal dimulai.
+              Kunjungan klinik sedang berlangsung. Dokter dapat memulai dari
+              aplikasi atau klinik dapat menandai status secara manual.
             </div>
           )}
 
@@ -536,45 +569,88 @@ export default function DetailBookingModal({
             </div>
           ) : null}
 
-          {canComplete && (
-            <button
-              type="button"
-              onClick={() => onUpdateStatus(booking.id, "Selesai")}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
-            >
-              <RefreshCw size={15} />
-              Tandai Selesai
-            </button>
-          )}
-
-          {canRescheduleOrCancel && (
-            <div className="grid grid-cols-2 gap-3">
+          {statusTransitions.length > 0 && (
+            <div className="rounded-xl border border-gray-100 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Perbarui status
+              </p>
+              <select
+                value={selectedStatus}
+                onChange={(e) =>
+                  setSelectedStatus(e.target.value as BookingDbStatus | "")
+                }
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 bg-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 outline-none"
+              >
+                <option value="">— Pilih status baru —</option>
+                {statusTransitions.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {selectedTransition?.description ? (
+                <p className="text-xs text-gray-500">
+                  {selectedTransition.description}
+                </p>
+              ) : null}
               <button
                 type="button"
-                onClick={() => onReschedule(booking.id)}
-                className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                onClick={() => void handleStatusUpdate()}
+                disabled={!selectedStatus || statusUpdating}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${
+                  selectedTransition?.destructive
+                    ? "border border-red-200 text-red-600 hover:bg-red-50"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                }`}
               >
-                Reschedule
-              </button>
-              <button
-                type="button"
-                onClick={() => onCancel(booking.id)}
-                className="py-3 rounded-xl border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
-              >
-                Batalkan
+                {statusUpdating ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={15} />
+                )}
+                Terapkan status
               </button>
             </div>
           )}
 
-          {!canComplete && !canRescheduleOrCancel && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+          {(canReschedule || canAssignDoctor) && (
+            <div
+              className={`grid gap-3 ${
+                canReschedule && canAssignDoctor ? "grid-cols-2" : "grid-cols-1"
+              }`}
             >
-              Tutup
-            </button>
+              {canReschedule ? (
+                <button
+                  type="button"
+                  onClick={() => onReschedule(booking.id)}
+                  className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Reschedule
+                </button>
+              ) : null}
+              {canAssignDoctor ? (
+                <button
+                  type="button"
+                  onClick={() => onAssignDoctor(booking.id)}
+                  className="py-3 rounded-xl border border-sky-200 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition-colors"
+                >
+                  Ubah dokter
+                </button>
+              ) : null}
+            </div>
           )}
+
+          {statusTransitions.length === 0 &&
+            !canReschedule &&
+            !canAssignDoctor && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Tutup
+              </button>
+            )}
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { messageFromAuthError } from "@/lib/auth/errors";
-import { passwordResetRedirectUrl } from "@/lib/auth/site-url";
+import { passwordRecoveryAcceptUrl } from "@/lib/auth/site-url";
 import { validateEmail } from "@/lib/auth/validation";
 import { AuthMarketingLayout } from "@/components/auth/AuthMarketingLayout";
 import { AuthTextField } from "@/components/auth/AuthTextField";
@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
       const supabase = createClient();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
-        { redirectTo: passwordResetRedirectUrl() }
+        { redirectTo: passwordRecoveryAcceptUrl() }
       );
       if (resetError) throw resetError;
       setSent(true);

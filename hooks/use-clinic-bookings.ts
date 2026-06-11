@@ -13,6 +13,7 @@ import {
   type BookingStats,
 } from "@/lib/booking/fetch-booking-stats";
 import { matchesBookingSearch } from "@/lib/booking/matches-search";
+import type { BookingDbStatus } from "@/lib/booking/clinic-status-transitions";
 import type { Booking, BookingStatus } from "@/types/booking";
 
 type StatusFilter = BookingStatus | "Semua";
@@ -174,17 +175,11 @@ export function useClinicBookings(options: UseClinicBookingsOptions = {}) {
     await Promise.all([fetchList(true), loadStats()]);
   }, [fetchList, loadStats]);
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateBookingStatus = async (
+    id: string,
+    dbStatus: BookingDbStatus
+  ) => {
     const supabase = createClient();
-    const dbStatus =
-      status === "Selesai"
-        ? "completed"
-        : status === "Dibatalkan"
-          ? "cancelled"
-          : status === "Terjadwal"
-            ? "confirmed"
-            : "in_progress";
-
     const { error: rpcError } = await supabase.rpc("clinic_update_booking_status", {
       p_booking_id: id,
       p_status: dbStatus,
@@ -193,11 +188,23 @@ export function useClinicBookings(options: UseClinicBookingsOptions = {}) {
     if (listEnabled) await refresh();
   };
 
+  /** @deprecated Prefer updateBookingStatus with explicit DB status. */
+  const updateStatus = async (id: string, status: BookingStatus) => {
+    const dbStatus: BookingDbStatus =
+      status === "Selesai"
+        ? "completed"
+        : status === "Dibatalkan"
+          ? "cancelled"
+          : "confirmed";
+    await updateBookingStatus(id, dbStatus);
+  };
+
   const reschedule = async (
     id: string,
     tanggal: string,
     jamMulai: string,
-    jamSelesai: string
+    jamSelesai: string,
+    doctorId?: string | null
   ) => {
     const start = new Date(`${tanggal}T${jamMulai}:00`);
     const end = new Date(`${tanggal}T${jamSelesai}:00`);
@@ -206,6 +213,23 @@ export function useClinicBookings(options: UseClinicBookingsOptions = {}) {
       p_booking_id: id,
       p_scheduled_start_at: start.toISOString(),
       p_scheduled_end_at: end.toISOString(),
+      p_doctor_id: doctorId ?? null,
+    });
+    if (rpcError) throw rpcError;
+    if (listEnabled) await refresh();
+  };
+
+  const assignDoctor = async (
+    id: string,
+    doctorId: string,
+    schedule: { scheduledStartAt: string; scheduledEndAt: string }
+  ) => {
+    const supabase = createClient();
+    const { error: rpcError } = await supabase.rpc("clinic_reschedule_booking", {
+      p_booking_id: id,
+      p_scheduled_start_at: schedule.scheduledStartAt,
+      p_scheduled_end_at: schedule.scheduledEndAt,
+      p_doctor_id: doctorId,
     });
     if (rpcError) throw rpcError;
     if (listEnabled) await refresh();
@@ -252,7 +276,9 @@ export function useClinicBookings(options: UseClinicBookingsOptions = {}) {
     loadMore,
     refresh,
     updateStatus,
+    updateBookingStatus,
     reschedule,
+    assignDoctor,
     createManual,
     isSearchMode,
   };

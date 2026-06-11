@@ -1,7 +1,14 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { doctorSetPasswordRedirectUrl } from "@/lib/auth/site-url";
+import { doctorInviteAcceptUrl } from "@/lib/auth/site-url";
+import {
+  ACTIVE_BOOKING_STATUSES,
+  ACTIVE_CONSULTATION_STATUSES,
+  formatDoctorObligationMessage,
+  hasActiveDoctorObligations,
+  type DoctorObligationSummary,
+} from "@/lib/dokter/doctor-obligations";
 import { requireClinicSession } from "./auth-guard";
 import type { Doctor, DoctorScheduleEntry } from "@/types/dokter";
 
@@ -256,7 +263,7 @@ export async function inviteDoctor(
   const { data: invited, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(email, {
       data: { name: input.name.trim(), role: "doctor" },
-      redirectTo: doctorSetPasswordRedirectUrl(),
+      redirectTo: doctorInviteAcceptUrl(),
     });
 
   if (inviteError) throw new Error(inviteErrorMessage(inviteError));
@@ -329,11 +336,143 @@ export async function resendDoctorInvite(doctorId: string): Promise<void> {
         name: profile?.name ?? userData.user.user_metadata?.name ?? "Dokter",
         role: "doctor",
       },
-      redirectTo: doctorSetPasswordRedirectUrl(),
+      redirectTo: doctorInviteAcceptUrl(),
     }
   );
 
   if (inviteError) throw new Error(inviteErrorMessage(inviteError));
+}
+
+async function assertDoctorInClinic(
+  admin: ReturnType<typeof createAdminClient>,
+  doctorId: string,
+  clinicId: string
+) {
+  const { data: doc } = await admin
+    .from("doctor_profiles")
+    .select("id, is_active, profiles ( name )")
+    .eq("id", doctorId)
+    .eq("clinic_id", clinicId)
+    .maybeSingle();
+
+  if (!doc) throw new Error("Dokter tidak ditemukan.");
+
+  const profiles = doc.profiles as
+    | { name?: string }
+    | { name?: string }[]
+    | null;
+  const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+
+  return {
+    isActive: (doc.is_active as boolean) ?? true,
+    name: profile?.name?.trim() || "Dokter",
+  };
+}
+
+async function getDoctorActiveObligations(
+  admin: ReturnType<typeof createAdminClient>,
+  doctorId: string,
+  clinicId: string
+): Promise<DoctorObligationSummary> {
+  const [{ count: bookingCount, error: bookingError }, { count: consultationCount, error: consultationError }] =
+    await Promise.all([
+      admin
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("doctor_id", doctorId)
+        .eq("clinic_id", clinicId)
+        .in("status", [...ACTIVE_BOOKING_STATUSES]),
+      admin
+        .from("consultations")
+        .select("id", { count: "exact", head: true })
+        .eq("doctor_id", doctorId)
+        .eq("clinic_id", clinicId)
+        .in("status", [...ACTIVE_CONSULTATION_STATUSES]),
+    ]);
+
+  if (bookingError) throw bookingError;
+  if (consultationError) throw consultationError;
+
+  return {
+    activeBookings: bookingCount ?? 0,
+    activeConsultations: consultationCount ?? 0,
+  };
+}
+
+export async function getDoctorDeactivationStatus(
+  doctorId: string
+): Promise<{
+  canDeactivate: boolean;
+  doctorName: string;
+  obligations: DoctorObligationSummary;
+  message?: string;
+}> {
+  const { clinicId } = await requireClinicSession();
+  const admin = createAdminClient();
+
+  const doctor = await assertDoctorInClinic(admin, doctorId, clinicId);
+  const obligations = await getDoctorActiveObligations(admin, doctorId, clinicId);
+
+  if (!doctor.isActive) {
+    return {
+      canDeactivate: false,
+      doctorName: doctor.name,
+      obligations,
+      message: "Dokter sudah nonaktif.",
+    };
+  }
+
+  if (hasActiveDoctorObligations(obligations)) {
+    return {
+      canDeactivate: false,
+      doctorName: doctor.name,
+      obligations,
+      message: `Tidak dapat menonaktifkan dokter karena masih memiliki tanggungan aktif: ${formatDoctorObligationMessage(obligations)}.`,
+    };
+  }
+
+  return {
+    canDeactivate: true,
+    doctorName: doctor.name,
+    obligations,
+  };
+}
+
+export async function deactivateDoctor(doctorId: string): Promise<void> {
+  const status = await getDoctorDeactivationStatus(doctorId);
+  if (!status.canDeactivate) {
+    throw new Error(status.message ?? "Dokter tidak dapat dinonaktifkan.");
+  }
+
+  await updateDoctorProfile({
+    doctorId,
+    isActive: false,
+  });
+}
+
+export async function deleteInactiveDoctor(doctorId: string): Promise<void> {
+  const { clinicId } = await requireClinicSession();
+  const admin = createAdminClient();
+
+  const doctor = await assertDoctorInClinic(admin, doctorId, clinicId);
+
+  if (doctor.isActive) {
+    throw new Error(
+      "Hanya dokter nonaktif yang dapat dihapus. Nonaktifkan dokter terlebih dahulu."
+    );
+  }
+
+  const obligations = await getDoctorActiveObligations(admin, doctorId, clinicId);
+  if (hasActiveDoctorObligations(obligations)) {
+    throw new Error(
+      `Tidak dapat menghapus dokter karena masih memiliki tanggungan aktif: ${formatDoctorObligationMessage(obligations)}.`
+    );
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(doctorId);
+  if (error) {
+    throw new Error(error.message ?? "Gagal menghapus akun dokter.");
+  }
 }
 
 export async function updateDoctorProfile(input: {
@@ -349,14 +488,20 @@ export async function updateDoctorProfile(input: {
   const { clinicId } = await requireClinicSession();
   const admin = createAdminClient();
 
-  const { data: doc } = await admin
-    .from("doctor_profiles")
-    .select("id")
-    .eq("id", input.doctorId)
-    .eq("clinic_id", clinicId)
-    .maybeSingle();
+  const doctor = await assertDoctorInClinic(admin, input.doctorId, clinicId);
 
-  if (!doc) throw new Error("Dokter tidak ditemukan.");
+  if (input.isActive === false && doctor.isActive) {
+    const obligations = await getDoctorActiveObligations(
+      admin,
+      input.doctorId,
+      clinicId
+    );
+    if (hasActiveDoctorObligations(obligations)) {
+      throw new Error(
+        `Tidak dapat menonaktifkan dokter karena masih memiliki tanggungan aktif: ${formatDoctorObligationMessage(obligations)}.`
+      );
+    }
+  }
 
   if (input.name?.trim()) {
     await admin

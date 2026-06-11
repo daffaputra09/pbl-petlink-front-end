@@ -10,15 +10,25 @@ import { AuthMarketingLayout } from "@/components/auth/AuthMarketingLayout";
  */
 export default function AcceptInvitePage() {
   const searchParams = useSearchParams();
-  const tokenHash = searchParams.get("token_hash");
+  const tokenHash = searchParams.get("token_hash") ?? searchParams.get("token");
   const type = searchParams.get("type") ?? "invite";
   const next = searchParams.get("next") ?? "/auth/set-password";
+  const pkceCode = searchParams.get("code");
 
   const isInvite = type === "invite";
   const isRecovery = type === "recovery";
+  const hasValidType = isInvite || isRecovery;
 
   function proceed() {
-    if (!tokenHash) return;
+    if (pkceCode) {
+      const url = new URL("/auth/callback", window.location.origin);
+      url.searchParams.set("code", pkceCode);
+      url.searchParams.set("next", next);
+      window.location.href = url.toString();
+      return;
+    }
+
+    if (!tokenHash || !hasValidType) return;
     const url = new URL("/auth/confirm", window.location.origin);
     url.searchParams.set("token_hash", tokenHash);
     url.searchParams.set("type", type);
@@ -37,12 +47,20 @@ export default function AcceptInvitePage() {
     >
       <div className="flex min-h-dvh items-center justify-center p-6 lg:p-10 bg-gray-50">
         <div className="w-full max-w-md rounded-2xl bg-white border border-gray-100 shadow-sm p-8">
-          {!tokenHash ? (
+          {!tokenHash && !pkceCode ? (
             <>
               <h1 className="text-xl font-bold text-gray-900">Tautan tidak lengkap</h1>
               <p className="text-sm text-gray-600 mt-2">
                 Parameter undangan tidak ditemukan. Buka ulang email dan klik
                 tombol undangan.
+              </p>
+            </>
+          ) : !hasValidType && !pkceCode ? (
+            <>
+              <h1 className="text-xl font-bold text-gray-900">Tautan tidak valid</h1>
+              <p className="text-sm text-gray-600 mt-2">
+                Jenis tautan tidak dikenali. Minta klinik atau admin mengirim
+                ulang email.
               </p>
             </>
           ) : (

@@ -14,9 +14,33 @@ import {
 } from "@/components/klinik/KlinikPageLayout";
 import type { Doctor, DoctorFormInput } from "@/types/dokter";
 import { useClinicDoctors } from "@/hooks/use-clinic-doctors";
-import { inviteDoctor, resendDoctorInvite, updateDoctorProfile } from "@/lib/actions/invite-doctor";
+import {
+  deactivateDoctor,
+  deleteInactiveDoctor,
+  getDoctorDeactivationStatus,
+  inviteDoctor,
+  resendDoctorInvite,
+  updateDoctorProfile,
+} from "@/lib/actions/invite-doctor";
 import { confirmAction } from "@/lib/ui/confirm-store";
 import { notifyError, notifySuccess } from "@/lib/ui/notify";
+
+function matchesDoctorSearch(doctor: Doctor, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  return [
+    doctor.nama,
+    doctor.email,
+    doctor.spesialisasi,
+    doctor.licenseNumber ?? "",
+    doctor.status,
+    doctor.awaitingPasswordSetup ? "menunggu kata sandi" : "",
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
+}
 
 export default function DokterPage() {
   const { doctors, loading, error, refresh } = useClinicDoctors();
@@ -24,6 +48,7 @@ export default function DokterPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Doctor | null>(null);
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const stats = useMemo(() => {
     const aktif = doctors.filter((d) => d.isActive).length;
@@ -33,6 +58,11 @@ export default function DokterPage() {
       nonaktif: doctors.length - aktif,
     };
   }, [doctors]);
+
+  const filteredDoctors = useMemo(
+    () => doctors.filter((doctor) => matchesDoctorSearch(doctor, searchQuery)),
+    [doctors, searchQuery]
+  );
 
   function handleAdd() {
     setEditData(null);
@@ -45,6 +75,23 @@ export default function DokterPage() {
   }
 
   async function handleSave(input: DoctorFormInput) {
+    if (editData && editData.isActive && !input.isActive) {
+      const status = await getDoctorDeactivationStatus(editData.id);
+      if (!status.canDeactivate) {
+        notifyError(status.message ?? "Dokter tidak dapat dinonaktifkan.");
+        return;
+      }
+
+      const ok = await confirmAction({
+        title: `Nonaktifkan ${status.doctorName}?`,
+        message:
+          "Dokter tidak akan muncul untuk booking atau konsultasi baru. Anda dapat mengaktifkan kembali dari menu edit.",
+        confirmLabel: "Nonaktifkan",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+
     setSaving(true);
     try {
       if (editData) {
@@ -58,6 +105,7 @@ export default function DokterPage() {
           isActive: input.isActive,
           photoFile: input.photoFile,
         });
+        notifySuccess("Profil dokter diperbarui.");
       } else {
         await inviteDoctor({
           email: input.email,
@@ -83,23 +131,47 @@ export default function DokterPage() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDeactivate(doctor: Doctor) {
+    try {
+      const status = await getDoctorDeactivationStatus(doctor.id);
+      if (!status.canDeactivate) {
+        notifyError(status.message ?? "Dokter tidak dapat dinonaktifkan.");
+        return;
+      }
+
+      const ok = await confirmAction({
+        title: `Nonaktifkan ${status.doctorName}?`,
+        message:
+          "Dokter tidak akan muncul untuk booking atau konsultasi baru. Tindakan ini dapat dibatalkan dengan mengaktifkan kembali dari menu edit. Pastikan tidak ada booking atau konsultasi yang masih berjalan.",
+        confirmLabel: "Nonaktifkan",
+        destructive: true,
+      });
+      if (!ok) return;
+
+      await deactivateDoctor(doctor.id);
+      await refresh();
+      notifySuccess("Dokter berhasil dinonaktifkan.");
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : "Gagal menonaktifkan dokter");
+    }
+  }
+
+  async function handlePermanentDelete(doctor: Doctor) {
     const ok = await confirmAction({
-      title: "Nonaktifkan dokter?",
-      message: "Dokter tidak akan muncul untuk booking (is_active = false).",
-      confirmLabel: "Nonaktifkan",
+      title: `Hapus ${doctor.nama} permanen?`,
+      message:
+        "Akun dokter akan dihapus dari sistem dan email dapat digunakan untuk pendaftaran ulang. Riwayat booking/konsultasi yang sudah selesai tetap tersimpan. Tindakan ini tidak dapat dibatalkan.",
+      confirmLabel: "Hapus permanen",
       destructive: true,
     });
     if (!ok) return;
+
     try {
-      await updateDoctorProfile({
-        doctorId: id,
-        isActive: false,
-      });
+      await deleteInactiveDoctor(doctor.id);
       await refresh();
-      notifySuccess("Dokter dinonaktifkan.");
+      notifySuccess("Dokter berhasil dihapus. Email dapat digunakan kembali.");
     } catch (e) {
-      notifyError(e instanceof Error ? e.message : "Gagal menonaktifkan");
+      notifyError(e instanceof Error ? e.message : "Gagal menghapus dokter");
     }
   }
 
@@ -136,12 +208,19 @@ export default function DokterPage() {
 
           <KlinikSectionCard
             title="Daftar Dokter"
-            description={`${stats.total} dokter terdaftar`}
+            description={
+              searchQuery.trim()
+                ? `${filteredDoctors.length} dari ${stats.total} dokter`
+                : `${stats.total} dokter terdaftar`
+            }
           >
             <DoctorTable
-              doctors={doctors}
+              doctors={filteredDoctors}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
               onEdit={handleEdit}
-              onDelete={handleDelete}
+              onDeactivate={handleDeactivate}
+              onPermanentDelete={handlePermanentDelete}
               onResendInvite={handleResendInvite}
             />
           </KlinikSectionCard>
