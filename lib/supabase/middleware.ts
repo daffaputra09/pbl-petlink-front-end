@@ -52,8 +52,7 @@ export async function updateSession(request: NextRequest) {
   if (isRoot) {
     const url = request.nextUrl.clone();
     if (!user) {
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return supabaseResponse;
     }
     const { data: profile } = await supabase
       .from("profiles")

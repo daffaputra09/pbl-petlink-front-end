@@ -10,6 +10,15 @@ const config: Config = {
   theme: {
   	extend: {
   		colors: {
+  			petlink: {
+  				DEFAULT: '#1E6B4F',
+  				50: '#EDF7F2',
+  				100: '#D4EDE2',
+  				600: '#1E6B4F',
+  				700: '#185A42',
+  				800: '#134935',
+  				900: '#0E3828',
+  			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
@@ -82,11 +91,21 @@ const config: Config = {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+  			'float': {
+  				'0%, 100%': { transform: 'translateY(0)' },
+  				'50%': { transform: 'translateY(-8px)' },
+  			},
+  			'fade-up': {
+  				from: { opacity: '0', transform: 'translateY(16px)' },
+  				to: { opacity: '1', transform: 'translateY(0)' },
+  			},
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'float': 'float 4s ease-in-out infinite',
+  			'fade-up': 'fade-up 0.6s ease-out forwards',
   		}
   	}
   },

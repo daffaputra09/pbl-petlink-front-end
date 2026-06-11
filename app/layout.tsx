@@ -8,8 +8,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PetLink",
-  description: "Aplikasi manajemen klinik hewan",
+  title: "PetLink — Platform Kesehatan Hewan Peliharaan",
+  description:
+    "PetLink menghubungkan pemilik hewan, klinik, dan dokter hewan. Booking layanan, konsultasi online, chat, dan pembayaran digital dalam satu platform.",
 };
 
 export default function RootLayout({
@@ -18,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="id" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>{children}</Providers>
         <AppToaster />

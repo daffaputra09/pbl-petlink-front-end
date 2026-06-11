@@ -6,6 +6,19 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .landing-gradient {
+    @apply bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-700;
+  }
+
+  .landing-dot-pattern {
+    background-image: radial-gradient(
+      circle at 20% 20%,
+      rgba(255, 255, 255, 0.15) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+  }
 }
 
 
