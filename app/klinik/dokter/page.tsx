@@ -59,13 +59,8 @@ export default function DokterPage() {
           photoFile: input.photoFile,
         });
       } else {
-        if (!input.password) {
-          notifyError("Kata sandi wajib untuk dokter baru.");
-          return;
-        }
         await inviteDoctor({
           email: input.email,
-          password: input.password,
           name: input.nama,
           specialization: input.spesialisasi,
           bio: input.bio,
@@ -74,6 +69,9 @@ export default function DokterPage() {
           isActive: input.isActive,
           photoFile: input.photoFile,
         });
+        notifySuccess(
+          "Dokter ditambahkan. Email undangan untuk atur kata sandi telah dikirim."
+        );
       }
       setModalOpen(false);
       await refresh();

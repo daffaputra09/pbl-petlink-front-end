@@ -9,6 +9,7 @@ import {
   PawPrint as PawIcon,
   Wallet,
   History,
+  Settings,
   LogOut,
 } from "lucide-react";
 import { useAdminSession } from "@/lib/auth/admin-session";
@@ -23,6 +24,7 @@ const menus = [
     icon: History,
     href: "/admin/penarikan/riwayat",
   },
+  { name: "Pengaturan", icon: Settings, href: "/admin/pengaturan" },
 ];
 
 export default function AdminSidebar() {

@@ -41,7 +41,13 @@ export async function updateSession(request: NextRequest) {
   const isAdminRoute = pathname.startsWith("/admin");
   const isAuthRoute =
     pathname === "/login" ||
+    pathname === "/forgot-password" ||
     pathname.startsWith("/register");
+  const isDoctorAuthRoute = pathname.startsWith("/auth/");
+
+  if (isDoctorAuthRoute) {
+    return supabaseResponse;
+  }
 
   if (isRoot) {
     const url = request.nextUrl.clone();

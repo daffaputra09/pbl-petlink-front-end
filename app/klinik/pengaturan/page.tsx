@@ -12,6 +12,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import OperatingHoursEditor from "@/components/pengaturan/OperatingHoursEditor";
+import { ChangePasswordCard } from "@/components/pengaturan/ChangePasswordCard";
 import { ProfilePhotoPicker } from "@/components/auth/ProfilePhotoPicker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -217,6 +218,8 @@ export default function PengaturanPage() {
           >
             <OperatingHoursEditor days={days} onChange={setDays} />
           </KlinikSectionCard>
+
+          <ChangePasswordCard />
 
           <div className="flex flex-col sm:flex-row gap-3 pt-1">
             <KlinikPrimaryButton

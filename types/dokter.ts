@@ -12,12 +12,13 @@ export interface Doctor {
   isActive: boolean;
   status: DoctorStatus;
   photo?: string;
+  /** True when doctor has not completed invite password setup yet. */
+  awaitingPasswordSetup?: boolean;
 }
 
 export interface DoctorFormInput {
   nama: string;
   email: string;
-  password?: string;
   spesialisasi: string;
   bio?: string;
   licenseNumber?: string;

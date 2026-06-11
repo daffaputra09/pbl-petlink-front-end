@@ -26,7 +26,6 @@ export default function AddDoctorModal({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [spesialisasi, setSpesialisasi] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [consultationFee, setConsultationFee] = useState("0");
@@ -40,7 +39,6 @@ export default function AddDoctorModal({
     setPhotoFile(null);
     setNama(editData?.nama ?? "");
     setEmail(editData?.email ?? "");
-    setPassword("");
     setSpesialisasi(editData?.spesialisasi ?? "");
     setLicenseNumber(editData?.licenseNumber ?? "");
     setConsultationFee(String(editData?.consultationFee ?? 0));
@@ -70,7 +68,6 @@ export default function AddDoctorModal({
     const e: Record<string, string> = {};
     if (!nama.trim()) e.nama = "Nama wajib diisi";
     if (!isEdit && !email.trim()) e.email = "Email wajib diisi";
-    if (!isEdit && !password.trim()) e.password = "Password wajib diisi";
     if (!spesialisasi.trim()) e.spesialisasi = "Spesialisasi wajib diisi";
     const fee = Number.parseFloat(consultationFee);
     if (Number.isNaN(fee) || fee < 0) {
@@ -89,7 +86,6 @@ export default function AddDoctorModal({
     await onSave({
       nama: nama.trim(),
       email: email.trim(),
-      password: password || undefined,
       spesialisasi: spesialisasi.trim(),
       bio: bio.trim() || undefined,
       licenseNumber: licenseNumber.trim() || undefined,
@@ -113,7 +109,9 @@ export default function AddDoctorModal({
               {isEdit ? "Edit Dokter" : "Tambah Dokter"}
             </h2>
             <p className="text-xs text-gray-500">
-              Data disimpan ke profiles & doctor_profiles (Supabase)
+              {isEdit
+                ? "Data disimpan ke profiles & doctor_profiles (Supabase)"
+                : "Dokter akan menerima email undangan untuk mengatur kata sandi"}
             </p>
           </div>
           <button
@@ -183,47 +181,31 @@ export default function AddDoctorModal({
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Email {isEdit ? "" : "*"}
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  readOnly={isEdit}
-                  disabled={isEdit}
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${
-                    isEdit ? "bg-gray-50 text-gray-500" : "focus:ring-2 focus:ring-teal-500"
-                  } ${errors.email ? "border-red-400" : "border-gray-200"}`}
-                />
-                {isEdit && (
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Email akun auth tidak dapat diubah dari sini.
-                  </p>
-                )}
-                {errors.email && (
-                  <p className="text-xs text-red-500 mt-1">{errors.email}</p>
-                )}
-              </div>
-              {!isEdit && (
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 ${
-                      errors.password ? "border-red-400" : "border-gray-200"
-                    }`}
-                  />
-                  {errors.password && (
-                    <p className="text-xs text-red-500 mt-1">{errors.password}</p>
-                  )}
-                </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Email {isEdit ? "" : "*"}
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                readOnly={isEdit}
+                disabled={isEdit}
+                className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${
+                  isEdit ? "bg-gray-50 text-gray-500" : "focus:ring-2 focus:ring-teal-500"
+                } ${errors.email ? "border-red-400" : "border-gray-200"}`}
+              />
+              {isEdit ? (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Email akun auth tidak dapat diubah dari sini.
+                </p>
+              ) : (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Link atur kata sandi akan dikirim ke email ini.
+                </p>
+              )}
+              {errors.email && (
+                <p className="text-xs text-red-500 mt-1">{errors.email}</p>
               )}
             </div>
 

@@ -26,6 +26,36 @@ export function validatePhone(phone: string): string | null {
   return null;
 }
 
+export function validatePasswordChange(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string
+): string | null {
+  if (!currentPassword) return "Kata sandi saat ini wajib diisi.";
+  if (newPassword.length < 6) return "Kata sandi baru minimal 6 karakter.";
+  if (newPassword !== confirmPassword) {
+    return "Konfirmasi kata sandi baru tidak cocok.";
+  }
+  if (currentPassword === newPassword) {
+    return "Kata sandi baru harus berbeda dari kata sandi saat ini.";
+  }
+  return null;
+}
+
+export function validateNewPasswordPair(
+  password: string,
+  confirmPassword: string
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (password.length < 6) {
+    errors.password = "Kata sandi minimal 6 karakter.";
+  }
+  if (password !== confirmPassword) {
+    errors.confirmPassword = "Konfirmasi kata sandi tidak cocok.";
+  }
+  return errors;
+}
+
 export function validateAccountStepFull(
   email: string,
   password: string,

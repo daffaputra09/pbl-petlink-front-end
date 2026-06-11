@@ -115,13 +115,20 @@ export default function DoctorTable({
                     <p className="text-sm text-gray-700">{doctor.email || "—"}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`text-xs font-medium px-3 py-1.5 rounded-full ${
-                        STATUS_STYLES[doctor.status] ?? ""
-                      }`}
-                    >
-                      {doctor.status}
-                    </span>
+                    <div className="flex flex-col gap-1.5">
+                      <span
+                        className={`text-xs font-medium px-3 py-1.5 rounded-full w-fit ${
+                          STATUS_STYLES[doctor.status] ?? ""
+                        }`}
+                      >
+                        {doctor.status}
+                      </span>
+                      {doctor.awaitingPasswordSetup ? (
+                        <span className="text-[11px] font-medium px-2.5 py-1 rounded-full w-fit bg-amber-50 text-amber-700 border border-amber-200">
+                          Menunggu kata sandi
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-1">

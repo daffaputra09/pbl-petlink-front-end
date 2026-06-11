@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { doctorSetPasswordRedirectUrl } from "@/lib/auth/site-url";
 import { requireClinicSession } from "./auth-guard";
 import type { Doctor, DoctorScheduleEntry } from "@/types/dokter";
 
@@ -12,7 +13,7 @@ const DOCTOR_SELECT = `
   consultation_fee,
   is_active,
   clinic_id,
-  profiles ( name, image_url )
+  profiles ( name, image_url, password_set_at )
 `;
 
 function mapDoctorRow(
@@ -31,6 +32,8 @@ function mapDoctorRow(
       ? feeRaw
       : Number.parseFloat(String(feeRaw ?? 0)) || 0;
 
+  const passwordSetAt = profile?.password_set_at as string | null | undefined;
+
   return {
     id: row.id as string,
     nama: (profile?.name as string) ?? "Dokter",
@@ -42,6 +45,7 @@ function mapDoctorRow(
     isActive,
     status: isActive ? "Aktif" : "Nonaktif",
     photo: (profile?.image_url as string | undefined) ?? undefined,
+    awaitingPasswordSetup: !passwordSetAt,
   };
 }
 
@@ -72,7 +76,6 @@ async function uploadDoctorPhoto(
 
 export interface InviteDoctorInput {
   email: string;
-  password: string;
   name: string;
   specialization: string;
   bio?: string;
@@ -80,6 +83,17 @@ export interface InviteDoctorInput {
   consultationFee?: number;
   isActive: boolean;
   photoFile?: File | null;
+}
+
+function inviteErrorMessage(error: { message?: string; status?: number }): string {
+  const msg = (error.message ?? "").toLowerCase();
+  if (msg.includes("already") && msg.includes("registered")) {
+    return "Email sudah terdaftar. Gunakan email lain.";
+  }
+  if (msg.includes("rate limit")) {
+    return "Terlalu banyak email undangan. Coba lagi nanti.";
+  }
+  return error.message ?? "Gagal mengirim undangan dokter.";
 }
 
 export async function listClinicDoctors(): Promise<Doctor[]> {
@@ -239,16 +253,14 @@ export async function inviteDoctor(
   const admin = createAdminClient();
 
   const email = input.email.trim().toLowerCase();
-  const { data: created, error: createError } =
-    await admin.auth.admin.createUser({
-      email,
-      password: input.password,
-      email_confirm: true,
-      user_metadata: { name: input.name.trim(), role: "doctor" },
+  const { data: invited, error: inviteError } =
+    await admin.auth.admin.inviteUserByEmail(email, {
+      data: { name: input.name.trim(), role: "doctor" },
+      redirectTo: doctorSetPasswordRedirectUrl(),
     });
 
-  if (createError) throw createError;
-  const userId = created.user.id;
+  if (inviteError) throw new Error(inviteErrorMessage(inviteError));
+  const userId = invited.user.id;
 
   let imageUrl: string | null = null;
   if (input.photoFile) {
@@ -261,6 +273,7 @@ export async function inviteDoctor(
     role: "doctor",
     is_active: true,
     image_url: imageUrl,
+    password_set_at: null,
   });
 
   const { error: doctorError } = await admin.from("doctor_profiles").upsert({
