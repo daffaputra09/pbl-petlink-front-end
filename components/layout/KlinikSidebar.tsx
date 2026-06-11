@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Settings,
   History,
+  Star,
 } from "lucide-react";
 
 const menus = [
@@ -19,6 +20,7 @@ const menus = [
   { name: "Dokter",    icon: Stethoscope,     href: "/klinik/dokter"    },
   { name: "Booking",   icon: CalendarDays,    href: "/klinik/booking"   },
   { name: "Riwayat",   icon: History,         href: "/klinik/riwayat"   },
+  { name: "Ulasan",    icon: Star,            href: "/klinik/ulasan"    },
   { name: "Layanan",   icon: HeartHandshake,  href: "/klinik/layanan"   },
   { name: "Keuangan",  icon: Wallet,          href: "/klinik/keuangan"  },
   { name: "Pesan",     icon: MessageCircle,   href: "/klinik/pesan"     },

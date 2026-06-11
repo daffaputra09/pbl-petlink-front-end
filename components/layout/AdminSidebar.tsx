@@ -9,6 +9,7 @@ import {
   PawPrint as PawIcon,
   Wallet,
   History,
+  Star,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useAdminSession } from "@/lib/auth/admin-session";
 const menus = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
   { name: "Kelola Klinik", icon: BriefcaseMedical, href: "/admin/klinik" },
+  { name: "Ulasan", icon: Star, href: "/admin/ulasan" },
   { name: "Tipe Hewan", icon: PawIcon, href: "/admin/tipe-hewan" },
   { name: "Penarikan Dana", icon: Wallet, href: "/admin/penarikan" },
   {
