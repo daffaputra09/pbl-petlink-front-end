@@ -162,7 +162,7 @@ export default function RiwayatPage() {
     if (handlingSearchMode) {
       return `${handlingItems.length} hasil pencarian`;
     }
-    return `${handlingItems.length} penanganan dokter`;
+    return `${handlingItems.length} dari ${handlingTotal} penanganan dokter`;
   }, [
     activeTab,
     consultationLoading,
@@ -176,6 +176,7 @@ export default function RiwayatPage() {
     handlingLoading,
     handlingSearchMode,
     handlingItems.length,
+    handlingTotal,
   ]);
 
   const activeError =

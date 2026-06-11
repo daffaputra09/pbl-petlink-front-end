@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Stethoscope } from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import { SCHEDULE_KIND_STYLES } from "@/lib/dokter/schedule-kind-styles";
 
 type Props = {

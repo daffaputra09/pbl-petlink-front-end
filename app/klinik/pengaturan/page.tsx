@@ -12,6 +12,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import OperatingHoursEditor from "@/components/pengaturan/OperatingHoursEditor";
+import { ProfilePhotoPicker } from "@/components/auth/ProfilePhotoPicker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +50,9 @@ function FieldGroup({
 export default function PengaturanPage() {
   const {
     profile,
+    photoPreview,
+    onPhotoChange,
+    onPhotoClear,
     clinicName,
     setClinicName,
     description,
@@ -91,11 +95,11 @@ export default function PengaturanPage() {
             <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10" />
             <div className="absolute -right-4 bottom-0 w-24 h-24 rounded-full bg-white/5" />
             <div className="relative flex items-center gap-4">
-              {profile?.imageUrl ? (
+              {photoPreview || profile?.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={profile.imageUrl}
-                  alt={profile.name}
+                  src={photoPreview ?? profile?.imageUrl ?? ""}
+                  alt={profile?.name ?? clinicName}
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30"
                 />
               ) : (
@@ -126,6 +130,11 @@ export default function PengaturanPage() {
               description="Deskripsi dan alamat yang ditampilkan ke pelanggan"
             >
               <div className="px-5 py-4 space-y-4">
+                <ProfilePhotoPicker
+                  previewUrl={photoPreview ?? profile?.imageUrl ?? null}
+                  onChange={onPhotoChange}
+                  onClear={onPhotoClear}
+                />
                 <FieldGroup label="Nama klinik" icon={<Stethoscope size={15} />}>
                   <Input
                     value={clinicName}

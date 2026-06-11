@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Stethoscope, User } from "lucide-react";
+import { ChevronRight, User } from "lucide-react";
 import {
   formatScheduleReferenceStatus,
   scheduleKindStyle,

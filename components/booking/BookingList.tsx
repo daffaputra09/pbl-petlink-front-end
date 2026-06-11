@@ -5,7 +5,7 @@ import { Booking } from "@/types/booking";
 import BookingCard from "./BookingCard";
 import BookingListSkeleton from "./BookingListSkeleton";
 import { formatTanggalIndo } from "@/lib/booking/format";
-import { LoadingBlock, Spinner } from "@/components/ui/Spinner";
+import { LoadingBlock } from "@/components/ui/Spinner";
 
 type Props = {
   bookings: Booking[];

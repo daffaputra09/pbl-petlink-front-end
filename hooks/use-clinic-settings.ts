@@ -13,9 +13,13 @@ import {
 } from "@/lib/auth/register-draft";
 import { mapOpeningHoursFromDb } from "@/lib/pengaturan/opening-hours";
 import { notifyError, notifySuccess } from "@/lib/ui/notify";
+import { uploadProfilePhoto } from "@/lib/storage/upload-profile-photo";
 
 export function useClinicSettings() {
   const { profile, signOut, refresh: refreshSession, loading: sessionLoading } = useClinicSession();
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [clinicName, setClinicName] = useState("");
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
@@ -35,6 +39,9 @@ export function useClinicSettings() {
 
     setLoading(true);
     setClinicName(profile.name ?? "");
+    setPhotoPreview(profile.imageUrl ?? null);
+    setPendingPhoto(null);
+    setRemovePhoto(false);
     const supabase = createClient();
 
     try {
@@ -109,9 +116,33 @@ export function useClinicSettings() {
     const supabase = createClient();
 
     try {
+      let imageUrl: string | null | undefined;
+
+      if (pendingPhoto) {
+        try {
+          imageUrl = await uploadProfilePhoto(supabase, profile.id, pendingPhoto);
+        } catch (err) {
+          notifyError(
+            err instanceof Error
+              ? err.message
+              : "Gagal mengunggah foto profil."
+          );
+          return;
+        }
+      } else if (removePhoto) {
+        imageUrl = null;
+      }
+
+      const profilePatch: { name: string; image_url?: string | null } = {
+        name: trimmedName,
+      };
+      if (imageUrl !== undefined) {
+        profilePatch.image_url = imageUrl;
+      }
+
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ name: trimmedName })
+        .update(profilePatch)
         .eq("id", profile.id);
 
       if (profileError) {
@@ -149,6 +180,8 @@ export function useClinicSettings() {
         return;
       }
 
+      setPendingPhoto(null);
+      setRemovePhoto(false);
       await refreshSession();
       notifySuccess("Pengaturan berhasil disimpan.");
     } catch {
@@ -156,10 +189,37 @@ export function useClinicSettings() {
     } finally {
       setSaving(false);
     }
-  }, [profile, clinicName, description, address, bankName, accountName, accountNumber, days, refreshSession]);
+  }, [
+    profile,
+    clinicName,
+    description,
+    address,
+    bankName,
+    accountName,
+    accountNumber,
+    days,
+    pendingPhoto,
+    removePhoto,
+    refreshSession,
+  ]);
+
+  const onPhotoChange = useCallback((file: File, preview: string) => {
+    setPendingPhoto(file);
+    setPhotoPreview(preview);
+    setRemovePhoto(false);
+  }, []);
+
+  const onPhotoClear = useCallback(() => {
+    setPendingPhoto(null);
+    setPhotoPreview(null);
+    setRemovePhoto(true);
+  }, []);
 
   return {
     profile,
+    photoPreview,
+    onPhotoChange,
+    onPhotoClear,
     clinicName,
     setClinicName,
     description,

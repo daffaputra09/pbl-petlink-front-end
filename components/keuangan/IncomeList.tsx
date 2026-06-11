@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Building2, Receipt, Wallet } from "lucide-react";
+import { ArrowRight, Receipt, Wallet } from "lucide-react";
 import {
   formatIncomeDate,
   formatIncomeTime,
