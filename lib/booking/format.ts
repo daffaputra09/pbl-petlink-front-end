@@ -1,3 +1,8 @@
+import {
+  APP_TIME_ZONE,
+  formatDateTimeInAppTz,
+} from "@/lib/datetime/indonesia";
+
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat("id-ID", {
@@ -14,12 +19,13 @@ export function formatBookingRef(id: string): string {
 export function formatTanggalIndo(isoOrYmd: string): string {
   const d = isoOrYmd.includes("T")
     ? new Date(isoOrYmd)
-    : new Date(`${isoOrYmd}T12:00:00`);
+    : new Date(`${isoOrYmd}T12:00:00+07:00`);
   return d.toLocaleDateString("id-ID", {
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: APP_TIME_ZONE,
   });
 }
 
@@ -30,15 +36,7 @@ export function formatTanggalPendek(ymd: string): string {
 }
 
 export function formatDateTimeIndo(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  return formatDateTimeInAppTz(iso);
 }
 
 export function formatPaymentStatus(status: string | null | undefined): string {

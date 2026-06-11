@@ -1,4 +1,8 @@
 import type { Booking, BookingStatus, JenisKelamin } from "@/types/booking";
+import {
+  formatDateYmdInAppTz,
+  formatTimeInAppTz,
+} from "@/lib/datetime/indonesia";
 import { resolveBookingDisplayStatus } from "./display-status";
 import { customerNotesFromNotes, visitAddressFromNotes } from "./notes";
 
@@ -51,23 +55,6 @@ function first<T>(v: T | T[] | null | undefined): T | null {
 function toNumber(v: unknown): number {
   if (typeof v === "number") return v;
   return Number.parseFloat(String(v ?? 0)) || 0;
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 function petAge(birthMonth: number, birthYear: number): string {
@@ -162,9 +149,9 @@ export function mapBookingRow(
     alamatPemilik: customer?.address ?? "-",
     emailPemilik: options?.ownerEmail ?? "-",
     telpPemilik: options?.ownerPhone ?? "-",
-    jamMulai: formatTime(row.scheduled_start_at),
-    jamSelesai: formatTime(row.scheduled_end_at),
-    tanggal: formatDate(row.scheduled_start_at),
+    jamMulai: formatTimeInAppTz(row.scheduled_start_at),
+    jamSelesai: formatTimeInAppTz(row.scheduled_end_at),
+    tanggal: formatDateYmdInAppTz(row.scheduled_start_at),
     status: uiStatus,
     rawStatus: row.status,
     paymentStatus: options?.paymentStatus ?? null,

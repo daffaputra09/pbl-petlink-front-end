@@ -47,6 +47,10 @@ import {
   formatTanggalIndo,
   paymentStatusBadgeClass,
 } from "@/lib/booking/format";
+import {
+  formatDateInAppTz,
+  formatTimeInAppTz,
+} from "@/lib/datetime/indonesia";
 
 type Props = {
   booking: Booking;
@@ -320,12 +324,25 @@ export default function DetailBookingModal({
               <InfoRow
                 icon={<Calendar size={15} />}
                 label="Tanggal"
-                value={formatTanggalIndo(booking.tanggal)}
+                value={
+                  booking.scheduledStartAt
+                    ? formatDateInAppTz(booking.scheduledStartAt, {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : formatTanggalIndo(booking.tanggal)
+                }
               />
               <InfoRow
                 icon={<Clock size={15} />}
                 label="Waktu"
-                value={`${booking.jamMulai} – ${booking.jamSelesai}`}
+                value={
+                  booking.scheduledStartAt && booking.scheduledEndAt
+                    ? `${formatTimeInAppTz(booking.scheduledStartAt)} – ${formatTimeInAppTz(booking.scheduledEndAt)}`
+                    : `${booking.jamMulai} – ${booking.jamSelesai}`
+                }
               />
               {booking.durationMinutes ? (
                 <InfoRow

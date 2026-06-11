@@ -7,27 +7,24 @@ import {
   scheduleKindStyle,
   scheduleStatusBadgeClass,
 } from "@/lib/dokter/schedule-kind-styles";
+import {
+  APP_TIME_ZONE,
+  formatTimeInAppTz,
+} from "@/lib/datetime/indonesia";
 
 function formatTimeRange(startsAt: string, endsAt: string) {
   const start = new Date(startsAt);
-  const end = new Date(endsAt);
   const date = start.toLocaleDateString("id-ID", {
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: APP_TIME_ZONE,
   });
-  const t1 = start.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const t2 = end.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return { date, time: `${t1}–${t2}` };
+  return {
+    date,
+    time: `${formatTimeInAppTz(startsAt)}–${formatTimeInAppTz(endsAt)}`,
+  };
 }
 
 type Props = {
