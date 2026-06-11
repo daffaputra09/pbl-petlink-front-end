@@ -1,82 +1,58 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { Doctor } from "@/types/dokter";
+import { useRouter } from "next/navigation";
+import { CalendarDays, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import type { Doctor } from "@/types/dokter";
 
 interface DoctorTableProps {
   doctors: Doctor[];
   onDelete: (id: string) => void;
   onEdit: (doctor: Doctor) => void;
-  onAdd: () => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  Bertugas: "bg-teal-50 text-teal-700 border border-teal-200",
-  Cuti: "bg-gray-100 text-gray-600 border border-gray-200",
-  Operasi: "bg-red-50 text-red-600 border border-red-200",
+  Aktif: "bg-teal-50 text-teal-700 border border-teal-200",
+  Nonaktif: "bg-gray-100 text-gray-600 border border-gray-200",
 };
 
-const SPESIALISASI_COLORS: Record<string, string> = {
-  Bedah: "bg-teal-600 text-white",
-  Orthopedics: "bg-orange-400 text-white",
-  Dermatology: "bg-yellow-500 text-white",
-  "General Praktek": "bg-teal-500 text-white",
-  Neurologi: "bg-purple-500 text-white",
-  Kardiologi: "bg-red-500 text-white",
-  Oftalmologi: "bg-blue-500 text-white",
-  Onkologi: "bg-pink-500 text-white",
-};
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
-const PAGE_SIZE = 3;
+const PAGE_SIZE = 5;
 
 export default function DoctorTable({
   doctors,
   onDelete,
   onEdit,
-  onAdd,
 }: DoctorTableProps) {
+  const router = useRouter();
   const [page, setPage] = useState(1);
-  const totalPages = Math.ceil(doctors.length / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(doctors.length / PAGE_SIZE));
   const paginated = doctors.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-  {/* Header */}
-  <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-    <div>
-      <h2 className="text-xl font-bold text-gray-800">
-        Manajemen Dokter
-      </h2>
-
-      <p className="text-sm text-gray-500 mt-0.5">
-        Mengelola, ketersediaan, dan spesialisasi klinis
-      </p>
-    </div>
-
-    {/* Button */}
-    <button
-      onClick={onAdd}
-      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
-    >
-      <Plus size={18} />
-      Tambah Dokter
-    </button>
-  </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto px-6">
+    <>
+      <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100">
               <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Nama Dokter
+                Dokter
               </th>
               <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Spesialisasi
               </th>
               <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Informasi Kontak
+                Tarif Konsultasi
+              </th>
+              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Kontak
               </th>
               <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Status
@@ -89,7 +65,7 @@ export default function DoctorTable({
           <tbody className="divide-y divide-gray-50">
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-16 text-gray-400">
+                <td colSpan={6} className="text-center py-16 text-gray-400">
                   Belum ada dokter terdaftar.
                 </td>
               </tr>
@@ -99,11 +75,11 @@ export default function DoctorTable({
                   key={doctor.id}
                   className="hover:bg-gray-50 transition-colors"
                 >
-                  {/* Nama */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                         {doctor.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={doctor.photo}
                             alt={doctor.nama}
@@ -119,37 +95,25 @@ export default function DoctorTable({
                         <p className="font-semibold text-gray-800 text-sm">
                           {doctor.nama}
                         </p>
-                        <p className="text-xs text-gray-400">{doctor.id}</p>
+                        {doctor.licenseNumber ? (
+                          <p className="text-xs text-gray-400">
+                            STR: {doctor.licenseNumber}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   </td>
-
-                  {/* Spesialisasi */}
                   <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1.5">
-                      {doctor.spesialisasi.map((s) => (
-                        <span
-                          key={s}
-                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                            SPESIALISASI_COLORS[s] ??
-                            "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </div>
+                    <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-100">
+                      {doctor.spesialisasi}
+                    </span>
                   </td>
-
-                  {/* Kontak */}
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {formatRupiah(doctor.consultationFee)}
+                  </td>
                   <td className="px-6 py-4">
-                    <p className="text-sm text-gray-700">{doctor.email}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {doctor.phone}
-                    </p>
+                    <p className="text-sm text-gray-700">{doctor.email || "—"}</p>
                   </td>
-
-                  {/* Status */}
                   <td className="px-6 py-4">
                     <span
                       className={`text-xs font-medium px-3 py-1.5 rounded-full ${
@@ -159,11 +123,23 @@ export default function DoctorTable({
                       {doctor.status}
                     </span>
                   </td>
-
-                  {/* Aksi */}
                   <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
                       <button
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            `/klinik/dokter/jadwal?doctorId=${doctor.id}`
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[#1E6B4F] hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors"
+                        title="Kelola jadwal"
+                      >
+                        <CalendarDays size={14} />
+                        Jadwal
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => onEdit(doctor)}
                         className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                         title="Edit"
@@ -171,9 +147,10 @@ export default function DoctorTable({
                         <Pencil size={16} />
                       </button>
                       <button
+                        type="button"
                         onClick={() => onDelete(doctor.id)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Hapus"
+                        title="Nonaktifkan"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -186,8 +163,7 @@ export default function DoctorTable({
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+      <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 bg-gray-50/60">
         <p className="text-sm text-gray-500">
           Menampilkan{" "}
           <span className="font-medium">
@@ -196,21 +172,21 @@ export default function DoctorTable({
           </span>{" "}
           dari <span className="font-medium">{doctors.length}</span> dokter
         </p>
-
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40"
           >
             <ChevronLeft size={16} />
           </button>
-
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <button
               key={p}
+              type="button"
               onClick={() => setPage(p)}
-              className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-9 h-9 rounded-lg text-sm font-medium ${
                 p === page
                   ? "bg-teal-700 text-white"
                   : "border border-gray-200 text-gray-600 hover:bg-gray-50"
@@ -219,16 +195,16 @@ export default function DoctorTable({
               {p}
             </button>
           ))}
-
           <button
+            type="button"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages || totalPages === 0}
-            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40"
           >
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 }

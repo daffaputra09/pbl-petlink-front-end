@@ -1,32 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Camera } from "lucide-react";
-import { Doctor, DoctorStatus } from "@/types/dokter";
-
-const SPESIALISASI_OPTIONS = [
-  "Bedah",
-  "Orthopedics",
-  "Dermatology",
-  "General Praktek",
-  "Neurologi",
-  "Kardiologi",
-  "Oftalmologi",
-  "Onkologi",
-];
-
-const HARI = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import type { Doctor, DoctorFormInput } from "@/types/dokter";
 
 interface AddDoctorModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (doctor: Doctor, password?: string) => void;
+  onSave: (input: DoctorFormInput) => Promise<void>;
   editData?: Doctor | null;
-}
-
-function generateId(): string {
-  const num = Math.floor(Math.random() * 900) + 100;
-  return `VET-2024-${num}`;
+  saving?: boolean;
 }
 
 export default function AddDoctorModal({
@@ -34,24 +17,37 @@ export default function AddDoctorModal({
   onClose,
   onSave,
   editData,
+  saving = false,
 }: AddDoctorModalProps) {
   const isEdit = !!editData;
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [photo, setPhoto] = useState<string>(editData?.photo ?? "");
-  const [nama, setNama] = useState(editData?.nama ?? "");
-  const [email, setEmail] = useState(editData?.email ?? "");
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [nama, setNama] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [spesialisasi, setSpesialisasi] = useState<string>(
-    editData?.spesialisasi[0] ?? ""
-  );
-  const [jadwal, setJadwal] = useState<string[]>(editData?.jadwal ?? []);
-  const [biografi, setBiografi] = useState(editData?.biografi ?? "");
-  const [phone, setPhone] = useState(editData?.phone ?? "");
-  const [status, setStatus] = useState<DoctorStatus>(
-    editData?.status ?? "Bertugas"
-  );
+  const [spesialisasi, setSpesialisasi] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [consultationFee, setConsultationFee] = useState("0");
+  const [bio, setBio] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    setPhotoPreview(editData?.photo ?? "");
+    setPhotoFile(null);
+    setNama(editData?.nama ?? "");
+    setEmail(editData?.email ?? "");
+    setPassword("");
+    setSpesialisasi(editData?.spesialisasi ?? "");
+    setLicenseNumber(editData?.licenseNumber ?? "");
+    setConsultationFee(String(editData?.consultationFee ?? 0));
+    setBio(editData?.bio ?? "");
+    setIsActive(editData?.isActive ?? true);
+    setErrors({});
+  }, [open, editData]);
 
   if (!open) return null;
 
@@ -62,70 +58,66 @@ export default function AddDoctorModal({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPhotoFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setPhoto(ev.target?.result as string);
+      setPhotoPreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
-  }
-
-  function toggleJadwal(hari: string) {
-    setJadwal((prev) =>
-      prev.includes(hari) ? prev.filter((h) => h !== hari) : [...prev, hari]
-    );
   }
 
   function validate() {
     const e: Record<string, string> = {};
     if (!nama.trim()) e.nama = "Nama wajib diisi";
-    if (!email.trim()) e.email = "Email wajib diisi";
+    if (!isEdit && !email.trim()) e.email = "Email wajib diisi";
     if (!isEdit && !password.trim()) e.password = "Password wajib diisi";
-    if (!spesialisasi) e.spesialisasi = "Pilih spesialisasi";
-    if (!phone.trim()) e.phone = "Nomor HP wajib diisi";
+    if (!spesialisasi.trim()) e.spesialisasi = "Spesialisasi wajib diisi";
+    const fee = Number.parseFloat(consultationFee);
+    if (Number.isNaN(fee) || fee < 0) {
+      e.consultationFee = "Tarif konsultasi tidak valid";
+    }
     return e;
   }
 
-  function handleSave() {
+  async function handleSave() {
     const e = validate();
     if (Object.keys(e).length > 0) {
       setErrors(e);
       return;
     }
-    const doc: Doctor = {
-      id: editData?.id ?? generateId(),
-      nama,
-      email,
-      phone,
-      spesialisasi: [spesialisasi],
-      status,
-      photo,
-      jadwal,
-      biografi,
-    };
-    onSave(doc, password || undefined);
+
+    await onSave({
+      nama: nama.trim(),
+      email: email.trim(),
+      password: password || undefined,
+      spesialisasi: spesialisasi.trim(),
+      bio: bio.trim() || undefined,
+      licenseNumber: licenseNumber.trim() || undefined,
+      consultationFee: Number.parseFloat(consultationFee) || 0,
+      isActive,
+      photoFile,
+    });
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <div>
             <h2 className="text-lg font-bold text-gray-800">
               {isEdit ? "Edit Dokter" : "Tambah Dokter"}
             </h2>
             <p className="text-xs text-gray-500">
-              Mengelola, ketersediaan, dan spesialisasi klinis
+              Data disimpan ke profiles & doctor_profiles (Supabase)
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           >
@@ -134,17 +126,17 @@ export default function AddDoctorModal({
         </div>
 
         <div className="p-6 flex flex-col md:flex-row gap-6">
-          {/* Left – Photo */}
           <div className="flex-shrink-0 flex flex-col items-center gap-2">
             <button
               type="button"
               onClick={handlePhotoClick}
               className="w-40 h-40 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:border-teal-400 hover:bg-teal-50 transition-colors flex flex-col items-center justify-center overflow-hidden relative group"
             >
-              {photo ? (
+              {photoPreview ? (
                 <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={photo}
+                    src={photoPreview}
                     alt="preview"
                     className="w-full h-full object-cover"
                   />
@@ -156,7 +148,7 @@ export default function AddDoctorModal({
                 <>
                   <Camera size={28} className="text-gray-400 mb-1" />
                   <span className="text-xs text-gray-400 text-center px-2">
-                    Klik untuk upload foto
+                    Upload foto profil
                   </span>
                 </>
               )}
@@ -169,26 +161,20 @@ export default function AddDoctorModal({
               onChange={handleFileChange}
             />
             <p className="text-xs text-gray-400 text-center">
-              Profile Picture
-            </p>
-            <p className="text-[11px] text-gray-300 text-center">
-              800×800px. JPG atau PNG.
+              Disimpan ke profiles.image_url
             </p>
           </div>
 
-          {/* Right – Form */}
           <div className="flex-1 flex flex-col gap-4">
-            {/* Nama */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Nama Lengkap
+                Nama Lengkap *
               </label>
               <input
                 type="text"
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
-                placeholder="e.g. Dr. Jane Smith"
-                className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition ${
+                className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 ${
                   errors.nama ? "border-red-400" : "border-gray-200"
                 }`}
               />
@@ -197,61 +183,101 @@ export default function AddDoctorModal({
               )}
             </div>
 
-            {/* Email & Password */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Email
+                  Email {isEdit ? "" : "*"}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="dokter@vetcarepro.com"
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition ${
-                    errors.email ? "border-red-400" : "border-gray-200"
-                  }`}
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none ${
+                    isEdit ? "bg-gray-50 text-gray-500" : "focus:ring-2 focus:ring-teal-500"
+                  } ${errors.email ? "border-red-400" : "border-gray-200"}`}
                 />
+                {isEdit && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Email akun auth tidak dapat diubah dari sini.
+                  </p>
+                )}
                 {errors.email && (
                   <p className="text-xs text-red-500 mt-1">{errors.email}</p>
                 )}
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition ${
-                    errors.password ? "border-red-400" : "border-gray-200"
-                  }`}
-                />
-                {errors.password && (
-                  <p className="text-xs text-red-500 mt-1">{errors.password}</p>
-                )}
-              </div>
+              {!isEdit && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 ${
+                      errors.password ? "border-red-400" : "border-gray-200"
+                    }`}
+                  />
+                  {errors.password && (
+                    <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Phone & Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Nomor HP
+                  Spesialisasi *
                 </label>
                 <input
                   type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+62 812-xxxx-xxxx"
-                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition ${
-                    errors.phone ? "border-red-400" : "border-gray-200"
+                  value={spesialisasi}
+                  onChange={(e) => setSpesialisasi(e.target.value)}
+                  placeholder="Contoh: Bedah, Dermatologi, General Praktek"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 ${
+                    errors.spesialisasi ? "border-red-400" : "border-gray-200"
                   }`}
                 />
-                {errors.phone && (
-                  <p className="text-xs text-red-500 mt-1">{errors.phone}</p>
+                {errors.spesialisasi && (
+                  <p className="text-xs text-red-500 mt-1">{errors.spesialisasi}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  No. STR / Izin Praktik
+                </label>
+                <input
+                  type="text"
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  placeholder="license_number"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Tarif Konsultasi (Rp) *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={consultationFee}
+                  onChange={(e) => setConsultationFee(e.target.value)}
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 ${
+                    errors.consultationFee ? "border-red-400" : "border-gray-200"
+                  }`}
+                />
+                {errors.consultationFee && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.consultationFee}
+                  </p>
                 )}
               </div>
               <div>
@@ -259,98 +285,50 @@ export default function AddDoctorModal({
                   Status
                 </label>
                 <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as DoctorStatus)}
-                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white"
+                  value={isActive ? "active" : "inactive"}
+                  onChange={(e) => setIsActive(e.target.value === "active")}
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-white outline-none focus:ring-2 focus:ring-teal-500"
                 >
-                  <option value="Bertugas">Bertugas</option>
-                  <option value="Cuti">Cuti</option>
-                  <option value="Operasi">Operasi</option>
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
                 </select>
-              </div>
-            </div>
-
-            {/* Spesialisasi */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Spesialisasi
-              </label>
-              <select
-                value={spesialisasi}
-                onChange={(e) => setSpesialisasi(e.target.value)}
-                className={`w-full border rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white ${
-                  errors.spesialisasi ? "border-red-400" : "border-gray-200"
-                }`}
-              >
-                <option value="">Pilih Spesialisasi</option>
-                {SPESIALISASI_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              {errors.spesialisasi && (
-                <p className="text-xs text-red-500 mt-1">
-                  {errors.spesialisasi}
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Maps ke doctor_profiles.is_active
                 </p>
-              )}
-            </div>
-
-            {/* Jadwal Bekerja */}
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Jadwal Bekerja
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {HARI.map((hari) => (
-                  <button
-                    key={hari}
-                    type="button"
-                    onClick={() => toggleJadwal(hari)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                      jadwal.includes(hari)
-                        ? "bg-teal-700 text-white border-teal-700"
-                        : "border-gray-200 text-gray-600 hover:border-teal-300"
-                    }`}
-                  >
-                    {hari}
-                  </button>
-                ))}
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Klik hari untuk beralih ketersediaan
-              </p>
             </div>
 
-            {/* Biografi */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Biografi
+                Bio
               </label>
               <textarea
-                value={biografi}
-                onChange={(e) => setBiografi(e.target.value)}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
                 rows={4}
-                placeholder="Bagikan latar belakang profesional, bidang keahlian, dan pendekatan pribadi terhadap perawatan hewan..."
-                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition resize-none"
+                placeholder="doctor_profiles.bio"
+                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500 resize-none"
               />
             </div>
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 sticky bottom-0 bg-white">
           <button
+            type="button"
             onClick={onClose}
-            className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+            disabled={saving}
+            className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50"
           >
             Batal
           </button>
           <button
-            onClick={handleSave}
-            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-teal-700 hover:bg-teal-800 transition-colors"
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-60"
           >
-            Simpan
+            {saving ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
       </div>

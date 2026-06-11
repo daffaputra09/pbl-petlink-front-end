@@ -10,6 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { confirmAction } from "@/lib/ui/confirm-store";
+import { notifyError, notifySuccess } from "@/lib/ui/notify";
 
 function dotColor(count: number) {
   if (count >= 100) return "bg-emerald-500";
@@ -42,19 +44,27 @@ export default function AdminTipeHewanPage() {
     try {
       await upsert(name.trim(), editId ?? undefined);
       setModalOpen(false);
+      notifySuccess(editId ? "Tipe hewan diperbarui." : "Tipe hewan ditambahkan.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menyimpan");
+      notifyError(e instanceof Error ? e.message : "Gagal menyimpan");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!confirm(`Hapus tipe "${label}"?`)) return;
+    const ok = await confirmAction({
+      title: "Hapus tipe hewan?",
+      message: `Tipe "${label}" akan dihapus dari sistem.`,
+      confirmLabel: "Hapus",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await remove(id);
+      notifySuccess("Tipe hewan dihapus.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menghapus");
+      notifyError(e instanceof Error ? e.message : "Gagal menghapus");
     }
   }
 

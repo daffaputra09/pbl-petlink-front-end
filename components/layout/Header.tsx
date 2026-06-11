@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useClinicSession } from "@/lib/auth/clinic-session";
 import { useChatNotifications } from "@/lib/notifications/chat-notification-context";
+import { notifyInfo } from "@/lib/ui/notify";
 
 export default function Header() {
   const { profile, signOut } = useClinicSession();
@@ -33,7 +34,7 @@ export default function Header() {
     }
     if (permission === "denied") {
       e.preventDefault();
-      alert(
+      notifyInfo(
         "Notifikasi diblokir browser. Aktifkan izin notifikasi untuk situs ini di pengaturan browser."
       );
     }
@@ -43,7 +44,7 @@ export default function Header() {
   const showGrantedDot = mounted && permission === "granted" && unreadCount === 0;
 
   return (
-    <header className="w-full border-b bg-white px-4 py-2.5">
+    <header className="w-full border-b bg-white px-6 py-2.5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-gray-800 truncate">
           {profile?.name ?? "Portal Klinik"}

@@ -13,7 +13,7 @@ function formatJuta(val: number) {
 }
 
 export default function GrafikPendapatan({ data }: GrafikPendapatanProps) {
-  const max = Math.max(...data.map((d) => d.pendapatan));
+  const max = Math.max(...data.map((d) => d.pendapatan), 1);
   const today = new Date().getDay(); // 0=Sun,1=Mon...
   const dayMap = [6, 0, 1, 2, 3, 4, 5]; // map JS day to index (Sen=0...Min=6)
   const todayIndex = dayMap[today];

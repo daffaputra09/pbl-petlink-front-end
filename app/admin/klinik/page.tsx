@@ -13,6 +13,7 @@ import {
 import { AdminPageSearch } from "@/components/layout/AdminPageSearch";
 import { useAdminClinics } from "@/hooks/use-admin-clinics";
 import { formatDateShort } from "@/lib/admin/format";
+import { notifyError, notifySuccess } from "@/lib/ui/notify";
 
 export default function AdminKlinikPage() {
   const [tab, setTab] = useState<"all" | "inactive">("all");
@@ -34,8 +35,9 @@ export default function AdminKlinikPage() {
     setBusyId(id);
     try {
       await setActive(id, !currentlyActive);
+      notifySuccess(currentlyActive ? "Klinik dinonaktifkan." : "Klinik diaktifkan.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal memperbarui status");
+      notifyError(e instanceof Error ? e.message : "Gagal memperbarui status");
     } finally {
       setBusyId(null);
     }

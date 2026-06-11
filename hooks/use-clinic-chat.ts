@@ -8,6 +8,9 @@ import {
   uploadChatImage,
 } from "@/lib/storage/chat-image";
 import type { Conversation, Message, TabType } from "@/types/chat";
+import { findOrCreateClinicDoctorThread } from "@/lib/chat/clinic-doctor-chat";
+import { findOrCreateClinicCustomerThread } from "@/lib/chat/clinic-customer-chat";
+import { formatConversationListTime } from "@/lib/chat/datetime";
 
 const THREAD_PAGE_SIZE = 20;
 const MESSAGE_PAGE_SIZE = 30;
@@ -18,6 +21,7 @@ type ThreadRow = {
   last_message_at: string | null;
   user_1_id: string;
   user_2_id: string;
+  type?: string;
   is_active?: boolean;
 };
 
@@ -45,6 +49,10 @@ function formatTime(iso: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatListTime(iso: string | null | undefined) {
+  return formatConversationListTime(iso);
 }
 
 function sortConversations(list: Conversation[]) {
@@ -85,13 +93,12 @@ async function fetchUnreadCounts(
   return counts;
 }
 
-export function useClinicChat(activeTab: TabType) {
+export function useClinicChat(activeTab: TabType, selectedThreadId: string | null) {
   const { profile } = useClinicSession();
-  const selectedIdRef = useRef<string | null>(null);
+  const selectedIdRef = useRef<string | null>(selectedThreadId);
 
   const [conversations, setConversations] = useState(emptyTabState);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [selectedId, setSelectedIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMoreThreads, setLoadingMoreThreads] = useState(false);
   const [hasMoreThreads, setHasMoreThreads] = useState(emptyTabFlags);
@@ -102,10 +109,11 @@ export function useClinicChat(activeTab: TabType) {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [messagesPage, setMessagesPage] = useState(0);
 
-  const setSelectedId = useCallback((id: string | null) => {
-    selectedIdRef.current = id;
-    setSelectedIdState(id);
-  }, []);
+  useEffect(() => {
+    selectedIdRef.current = selectedThreadId;
+  }, [selectedThreadId]);
+
+  const selectedId = selectedThreadId;
 
   const buildConversation = useCallback(
     (
@@ -132,11 +140,13 @@ export function useClinicChat(activeTab: TabType) {
           .join("")
           .toUpperCase(),
         lastMessage: thread.last_message ?? "",
-        time: formatTime(thread.last_message_at),
+        time: formatListTime(thread.last_message_at),
         lastMessageAt: thread.last_message_at,
         unreadCount,
-        messages: [],
+        peerId: peer.id,
         peerRole: peer.role,
+        threadType: thread.type,
+        messages: [],
       };
     },
     [profile]
@@ -149,6 +159,7 @@ export function useClinicChat(activeTab: TabType) {
         id: row.id,
         content: row.message ?? "",
         time: formatTime(row.created_at),
+        createdAt: row.created_at,
         isSent: row.sender_id === profile?.id,
         isRead: row.is_read ?? false,
         type: isImage ? "image" : "text",
@@ -170,7 +181,7 @@ export function useClinicChat(activeTab: TabType) {
         .from("chat_threads")
         .select(
           `
-          id, last_message, last_message_at, user_1_id, user_2_id,
+          id, last_message, last_message_at, user_1_id, user_2_id, type,
           user1:profiles!chat_threads_user_1_id_fkey ( id, name, role, image_url ),
           user2:profiles!chat_threads_user_2_id_fkey ( id, name, role, image_url )
         `
@@ -188,6 +199,7 @@ export function useClinicChat(activeTab: TabType) {
       for (const t of slice) {
         const conv = buildConversation(t as ThreadRow & typeof t);
         if (!conv || conv.peerRole !== peerRole) continue;
+        if (tab === "Doctors" && conv.threadType !== "chat") continue;
         items.push(conv);
       }
 
@@ -247,14 +259,14 @@ export function useClinicChat(activeTab: TabType) {
   ]);
 
   const fetchAndInsertThread = useCallback(
-    async (threadId: string) => {
-      if (!profile) return;
+    async (threadId: string): Promise<Conversation | null> => {
+      if (!profile) return null;
       const supabase = createClient();
       const { data: thread } = await supabase
         .from("chat_threads")
         .select(
           `
-          id, last_message, last_message_at, user_1_id, user_2_id, is_active,
+          id, last_message, last_message_at, user_1_id, user_2_id, type, is_active,
           user1:profiles!chat_threads_user_1_id_fkey ( id, name, role, image_url ),
           user2:profiles!chat_threads_user_2_id_fkey ( id, name, role, image_url )
         `
@@ -263,13 +275,13 @@ export function useClinicChat(activeTab: TabType) {
         .eq("is_active", true)
         .maybeSingle();
 
-      if (!thread) return;
+      if (!thread) return null;
       const unreadMap = await fetchUnreadCounts(supabase, [threadId], profile.id);
       const conv = buildConversation(
         thread as ThreadRow & typeof thread,
         unreadMap[threadId] ?? 0
       );
-      if (!conv) return;
+      if (!conv) return null;
 
       const bucket = conv.peerRole === "customer" ? "Customers" : "Doctors";
       setConversations((prev) => {
@@ -279,6 +291,7 @@ export function useClinicChat(activeTab: TabType) {
           [bucket]: sortConversations([conv, ...filtered]),
         };
       });
+      return conv;
     },
     [profile, buildConversation]
   );
@@ -349,7 +362,7 @@ export function useClinicChat(activeTab: TabType) {
           const updated = {
             ...list[idx],
             lastMessage: record.last_message ?? "",
-            time: formatTime(record.last_message_at),
+            time: formatListTime(record.last_message_at),
             lastMessageAt: record.last_message_at,
           };
           const next = list.filter((_, i) => i !== idx);
@@ -413,7 +426,7 @@ export function useClinicChat(activeTab: TabType) {
                 : current.lastMessage,
             time:
               event === "INSERT"
-                ? formatTime(record.created_at)
+                ? formatListTime(record.created_at)
                 : current.time,
             lastMessageAt:
               event === "INSERT"
@@ -626,6 +639,7 @@ export function useClinicChat(activeTab: TabType) {
           id: inserted.id,
           content: text,
           time: formatTime(now),
+          createdAt: now,
           isSent: true,
           isRead: inserted.is_read ?? false,
         },
@@ -634,7 +648,7 @@ export function useClinicChat(activeTab: TabType) {
 
     patchThread(selectedId, {
       lastMessage: text,
-      time: formatTime(now),
+      time: formatListTime(now),
       lastMessageAt: now,
     });
   };
@@ -679,6 +693,7 @@ export function useClinicChat(activeTab: TabType) {
         id: inserted.id,
         content: i === 0 ? trimmedCaption : "",
         time: formatTime(now),
+        createdAt: now,
         isSent: true,
         isRead: inserted.is_read ?? false,
         type: "image",
@@ -708,16 +723,42 @@ export function useClinicChat(activeTab: TabType) {
 
     patchThread(selectedId, {
       lastMessage: preview,
-      time: formatTime(now),
+      time: formatListTime(now),
       lastMessageAt: now,
     });
   };
 
+  const startChatWithDoctor = useCallback(
+    async (doctorId: string) => {
+      if (!profile) throw new Error("Sesi klinik tidak valid.");
+      const threadId = await findOrCreateClinicDoctorThread(profile.id, doctorId);
+      await fetchAndInsertThread(threadId);
+      return threadId;
+    },
+    [profile, fetchAndInsertThread]
+  );
+
+  const startChatWithCustomer = useCallback(
+    async (customerId: string) => {
+      if (!profile) throw new Error("Sesi klinik tidak valid.");
+      const threadId = await findOrCreateClinicCustomerThread(
+        profile.id,
+        customerId
+      );
+      await fetchAndInsertThread(threadId);
+      return threadId;
+    },
+    [profile, fetchAndInsertThread]
+  );
+
+  const ensureThreadLoaded = useCallback(
+    async (threadId: string) => fetchAndInsertThread(threadId),
+    [fetchAndInsertThread]
+  );
+
   return {
     conversations,
     messages,
-    selectedId,
-    setSelectedId,
     loading,
     loadingMoreThreads,
     hasMoreThreads,
@@ -729,5 +770,8 @@ export function useClinicChat(activeTab: TabType) {
     refreshThreads,
     sendMessage,
     sendImages,
+    startChatWithDoctor,
+    startChatWithCustomer,
+    ensureThreadLoaded,
   };
 }

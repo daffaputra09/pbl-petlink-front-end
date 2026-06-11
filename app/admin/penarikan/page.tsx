@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { notifyError, notifySuccess } from "@/lib/ui/notify";
 
 export default function AdminPenarikanPage() {
   const [search, setSearch] = useState("");
@@ -32,8 +33,9 @@ export default function AdminPenarikanPage() {
     setBusyId(id);
     try {
       await processRequest(id, "approve");
+      notifySuccess("Penarikan disetujui.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menyetujui");
+      notifyError(e instanceof Error ? e.message : "Gagal menyetujui");
     } finally {
       setBusyId(null);
     }
@@ -46,8 +48,9 @@ export default function AdminPenarikanPage() {
       await processRequest(rejectId, "reject", rejectReason.trim());
       setRejectId(null);
       setRejectReason("");
+      notifySuccess("Penarikan ditolak.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menolak");
+      notifyError(e instanceof Error ? e.message : "Gagal menolak");
     } finally {
       setBusyId(null);
     }

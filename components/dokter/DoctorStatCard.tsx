@@ -1,29 +1,19 @@
 "use client";
 
-import { Users, UserCheck, Coffee, Stethoscope } from "lucide-react";
-
-interface StatCard {
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-}
+import { Users, UserCheck, UserX } from "lucide-react";
 
 interface DoctorStatCardsProps {
   total: number;
-  bertugas: number;
-  cuti: number;
-  operasi: number;
+  aktif: number;
+  nonaktif: number;
 }
 
-export default function DoctorStatCard({
+export default function DoctorStatCards({
   total,
-  bertugas,
-  cuti,
-  operasi,
+  aktif,
+  nonaktif,
 }: DoctorStatCardsProps) {
-  const stats: StatCard[] = [
+  const stats = [
     {
       label: "Total Dokter",
       value: total,
@@ -32,34 +22,27 @@ export default function DoctorStatCard({
       iconColor: "text-blue-500",
     },
     {
-      label: "Bertugas",
-      value: bertugas,
+      label: "Aktif",
+      value: aktif,
       icon: <UserCheck size={24} />,
       iconBg: "bg-teal-50",
       iconColor: "text-teal-500",
     },
     {
-      label: "Cuti",
-      value: cuti,
-      icon: <Coffee size={24} />,
+      label: "Nonaktif",
+      value: nonaktif,
+      icon: <UserX size={24} />,
       iconBg: "bg-orange-50",
       iconColor: "text-orange-500",
-    },
-    {
-      label: "Operasi",
-      value: String(operasi).padStart(2, "0"),
-      icon: <Stethoscope size={24} />,
-      iconBg: "bg-red-50",
-      iconColor: "text-red-400",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm"
+          className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm"
         >
           <div className={`${stat.iconBg} ${stat.iconColor} p-3 rounded-xl`}>
             {stat.icon}

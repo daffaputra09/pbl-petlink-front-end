@@ -24,6 +24,7 @@ export const keuanganData: KeuanganData = {
       nomorRekening: "1234567890",
       atasNama: "PetLife Klinik",
       status: "Berhasil",
+      rawStatus: "approved",
     },
     {
       id: "WD002",
@@ -34,6 +35,7 @@ export const keuanganData: KeuanganData = {
       nomorRekening: "0987654321",
       atasNama: "PetLife Klinik",
       status: "Berhasil",
+      rawStatus: "approved",
     },
     {
       id: "WD003",
@@ -44,6 +46,7 @@ export const keuanganData: KeuanganData = {
       nomorRekening: "1122334455",
       atasNama: "PetLife Klinik",
       status: "Berhasil",
+      rawStatus: "approved",
     },
     {
       id: "WD004",
@@ -53,7 +56,8 @@ export const keuanganData: KeuanganData = {
       namaBank: "BRI",
       nomorRekening: "5566778899",
       atasNama: "PetLife Klinik",
-      status: "Gagal",
+      status: "Ditolak",
+      rawStatus: "rejected",
     },
     {
       id: "WD005",
@@ -63,7 +67,8 @@ export const keuanganData: KeuanganData = {
       namaBank: "BCA",
       nomorRekening: "1234567890",
       atasNama: "PetLife Klinik",
-      status: "Diproses",
+      status: "Menunggu",
+      rawStatus: "pending",
     },
   ],
 };

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   RefreshCw,
@@ -9,17 +10,36 @@ import {
   Phone,
   User,
   Stethoscope,
-  Wrench,
   CreditCard,
   FileText,
   Navigation,
   Home,
+  Calendar,
+  Clock,
+  Hash,
+  Wrench,
+  MessageCircle,
+  Loader2,
 } from "lucide-react";
 import { Booking, BookingStatus } from "@/types/booking";
-import {
-  displayStatusBadgeClass,
-} from "@/lib/booking/display-status";
+import { displayStatusBadgeClass } from "@/lib/booking/display-status";
 import { googleMapsDirectionsUrl } from "@/lib/booking/visit-address";
+import { getCustomerContact } from "@/lib/actions/lookup-customer";
+import { useClinicSession } from "@/lib/auth/clinic-session";
+import { findOrCreateClinicCustomerThread } from "@/lib/chat/clinic-customer-chat";
+import { findOrCreateClinicDoctorThread } from "@/lib/chat/clinic-doctor-chat";
+import { buildPesanUrl } from "@/lib/chat/pesan-url";
+import { notifyError } from "@/lib/ui/notify";
+import {
+  channelLabel,
+  formatBookingRef,
+  formatCurrency,
+  formatDateTimeIndo,
+  formatDurationMinutes,
+  formatPaymentStatus,
+  formatTanggalIndo,
+  paymentStatusBadgeClass,
+} from "@/lib/booking/format";
 
 type Props = {
   booking: Booking;
@@ -29,10 +49,34 @@ type Props = {
   onCancel: (id: string) => void;
 };
 
-function formatTanggal(tanggal: string): string {
-  const [y, m, d] = tanggal.split("-");
-  if (d && m && y) return `${d}/${m}/${y}`;
-  return tanggal;
+function InfoRow({
+  icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 text-gray-400 shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">
+          {label}
+        </p>
+        <p
+          className={`text-sm text-gray-800 mt-0.5 break-words ${
+            mono ? "font-mono text-xs" : "font-medium"
+          }`}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function DetailBookingModal({
@@ -43,6 +87,13 @@ export default function DetailBookingModal({
   onCancel,
 }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const { profile } = useClinicSession();
+  const [contactLoading, setContactLoading] = useState(false);
+  const [chatCustomerLoading, setChatCustomerLoading] = useState(false);
+  const [chatDoctorLoading, setChatDoctorLoading] = useState(false);
+  const [email, setEmail] = useState(booking.emailPemilik);
+  const [phone, setPhone] = useState(booking.telpPemilik);
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) onClose();
@@ -56,12 +107,38 @@ export default function DetailBookingModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  useEffect(() => {
+    setEmail(booking.emailPemilik);
+    setPhone(booking.telpPemilik);
+  }, [booking]);
+
+  useEffect(() => {
+    if (!booking.customerId) return;
+    if (booking.emailPemilik !== "-" && booking.telpPemilik !== "-") return;
+
+    let cancelled = false;
+    setContactLoading(true);
+    void getCustomerContact(booking.customerId)
+      .then((c) => {
+        if (cancelled) return;
+        if (c.email) setEmail(c.email);
+        if (c.phone) setPhone(c.phone);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setContactLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [booking.customerId, booking.emailPemilik, booking.telpPemilik]);
+
   const displayLabel = booking.displayLabel ?? booking.status;
   const badgeClass = displayStatusBadgeClass(
     booking.displayKind ?? "terjadwal"
   );
   const isHome = booking.channel === "home";
-  const isClinic = booking.channel === "clinic" || !isHome;
   const canComplete =
     booking.status === "Terjadwal" &&
     (booking.rawStatus === "confirmed" ||
@@ -72,162 +149,278 @@ export default function DetailBookingModal({
     booking.rawStatus !== "in_progress" &&
     booking.rawStatus !== "completed";
 
-  const directionsUrl =
-    isHome
-      ? googleMapsDirectionsUrl({
-          latitude: booking.visitLatitude,
-          longitude: booking.visitLongitude,
-          address: booking.visitAddress,
-        })
-      : null;
+  const directionsUrl = isHome
+    ? googleMapsDirectionsUrl({
+        latitude: booking.visitLatitude,
+        longitude: booking.visitLongitude,
+        address: booking.visitAddress,
+      })
+    : null;
+
+  const catatanTampil = booking.catatanCustomer ?? booking.catatan;
+
+  async function handleChatCustomer() {
+    if (!booking.customerId) {
+      notifyError("Data customer tidak tersedia untuk booking ini.");
+      return;
+    }
+    if (!profile?.id) {
+      notifyError("Sesi klinik tidak valid.");
+      return;
+    }
+    setChatCustomerLoading(true);
+    try {
+      const threadId = await findOrCreateClinicCustomerThread(
+        profile.id,
+        booking.customerId
+      );
+      onClose();
+      router.push(buildPesanUrl({ threadId, tab: "Customers" }));
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : "Gagal membuka chat");
+    } finally {
+      setChatCustomerLoading(false);
+    }
+  }
+
+  async function handleChatDoctor() {
+    if (!booking.doctorId) {
+      notifyError("Dokter belum ditentukan untuk booking ini.");
+      return;
+    }
+    if (!profile?.id) {
+      notifyError("Sesi klinik tidak valid.");
+      return;
+    }
+    setChatDoctorLoading(true);
+    try {
+      const threadId = await findOrCreateClinicDoctorThread(
+        profile.id,
+        booking.doctorId
+      );
+      onClose();
+      router.push(buildPesanUrl({ threadId, tab: "Doctors" }));
+    } catch (e) {
+      notifyError(e instanceof Error ? e.message : "Gagal membuka chat dokter");
+    } finally {
+      setChatDoctorLoading(false);
+    }
+  }
 
   return (
     <div
       ref={overlayRef}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-6"
     >
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          aria-label="Tutup"
-        >
-          <X size={18} />
-        </button>
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            aria-label="Tutup"
+          >
+            <X size={18} />
+          </button>
 
-        <div className="px-6 pt-6 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800 text-center">
-            Detail Booking
-          </h2>
-        </div>
-
-        <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-block text-xs font-medium px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
-              {booking.kategori}
-            </span>
-            {isHome ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
-                <Home size={12} />
-                Home Service
-              </span>
-            ) : (
-              <span className="text-xs font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                Kunjungan Klinik
-              </span>
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900">{booking.namaPasien}</h3>
-            <p className="text-sm text-gray-500 mt-0.5">{booking.jenis}</p>
-          </div>
-
-          <hr className="border-gray-100" />
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Berat</p>
-              <p className="text-sm font-semibold text-gray-800">{booking.beratKg} kg</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Jenis Kelamin</p>
-              <p className="text-sm font-semibold text-gray-800">{booking.jenisKelamin}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Umur</p>
-              <p className="text-sm font-semibold text-gray-800">{booking.usia}</p>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Jadwal</p>
-              <p className="text-sm font-semibold text-gray-800">
-                {booking.jamMulai} – {booking.jamSelesai}
-              </p>
-              <p className="text-xs text-gray-500">{formatTanggal(booking.tanggal)}</p>
-            </div>
-            <span className={`text-xs font-medium px-3 py-1 rounded-md whitespace-nowrap ${badgeClass}`}>
+          <div className="flex flex-wrap items-center gap-2 pr-8">
+            <span
+              className={`text-xs font-medium px-2.5 py-1 rounded-full ${badgeClass}`}
+            >
               {displayLabel}
             </span>
+            <span
+              className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                isHome
+                  ? "bg-violet-50 text-violet-700 border border-violet-100"
+                  : "bg-blue-50 text-blue-700 border border-blue-100"
+              }`}
+            >
+              {isHome ? (
+                <span className="inline-flex items-center gap-1">
+                  <Home size={12} />
+                  {channelLabel(booking.channel)}
+                </span>
+              ) : (
+                channelLabel(booking.channel)
+              )}
+            </span>
+            <span className="text-xs font-mono text-gray-400">
+              #{formatBookingRef(booking.id)}
+            </span>
           </div>
+          <h2 className="text-xl font-bold text-gray-900 mt-2">
+            {booking.namaPasien}
+          </h2>
+          <p className="text-sm text-gray-500">
+            {booking.kategori}
+            {booking.jenis !== "-" ? ` · ${booking.jenis}` : ""} · {booking.usia}{" "}
+            · {booking.jenisKelamin}
+          </p>
+        </div>
 
+        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
           {isHome && booking.displayKind === "menungguCheckIn" && (
             <div className="bg-amber-50 rounded-xl px-4 py-3 border border-amber-100 text-sm text-amber-800">
-              Menunggu dokter check-in di lokasi customer. Status berlangsung dimulai setelah check-in GPS.
+              Menunggu dokter check-in di lokasi customer. Status berlangsung
+              dimulai setelah check-in GPS.
             </div>
           )}
 
-          {isClinic && booking.displayKind === "berlangsung" && (
+          {!isHome && booking.displayKind === "berlangsung" && (
             <div className="bg-sky-50 rounded-xl px-4 py-3 border border-sky-100 text-sm text-sky-800">
-              Kunjungan klinik: status berlangsung diperbarui otomatis saat jadwal dimulai.
+              Kunjungan klinik: status berlangsung diperbarui otomatis saat
+              jadwal dimulai.
             </div>
           )}
 
           {booking.checkedInAt && (
             <div className="bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-100 text-sm text-emerald-800">
-              Dokter sudah check-in di lokasi customer.
+              Dokter sudah check-in pada{" "}
+              {formatDateTimeIndo(booking.checkedInAt)}.
             </div>
           )}
 
-          {booking.namaDokter && (
-            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
-              <Stethoscope size={16} className="text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Dokter</p>
-                <p className="text-sm font-semibold text-gray-800">{booking.namaDokter}</p>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Jadwal
+              </p>
+              <InfoRow
+                icon={<Calendar size={15} />}
+                label="Tanggal"
+                value={formatTanggalIndo(booking.tanggal)}
+              />
+              <InfoRow
+                icon={<Clock size={15} />}
+                label="Waktu"
+                value={`${booking.jamMulai} – ${booking.jamSelesai}`}
+              />
+              {booking.durationMinutes ? (
+                <InfoRow
+                  icon={<Clock size={15} />}
+                  label="Durasi"
+                  value={formatDurationMinutes(booking.durationMinutes)}
+                />
+              ) : null}
             </div>
-          )}
 
-          {booking.namaLayanan && booking.namaLayanan.length > 0 && (
-            <div className="bg-gray-50 rounded-xl px-4 py-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Wrench size={14} className="text-emerald-600 shrink-0" />
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Layanan</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {booking.namaLayanan.map((layanan, i) => (
-                  <span
-                    key={i}
-                    className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100"
-                  >
-                    {layanan}
-                  </span>
-                ))}
-              </div>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Tim & channel
+              </p>
+              <InfoRow
+                icon={<Stethoscope size={15} />}
+                label="Dokter"
+                value={booking.namaDokter ?? "Belum ditentukan"}
+              />
+              <InfoRow
+                icon={<User size={15} />}
+                label="Pemilik"
+                value={booking.namaPemilik}
+              />
             </div>
-          )}
+          </div>
 
-          {booking.totalAmount != null && booking.totalAmount > 0 && (
-            <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
-              <CreditCard size={16} className="text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium mb-0.5">Total Biaya</p>
-                <p className="text-sm font-semibold text-gray-800">
-                  {new Intl.NumberFormat("id-ID", {
-                    style: "currency",
-                    currency: "IDR",
-                    minimumFractionDigits: 0,
-                  }).format(booking.totalAmount)}
+          {(booking.layanan?.length ?? 0) > 0 && (
+            <div className="border border-gray-100 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                <Wrench size={14} className="text-emerald-600" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Layanan
                 </p>
               </div>
+              <div className="divide-y divide-gray-50">
+                {booking.layanan!.map((item, i) => (
+                  <div
+                    key={i}
+                    className="px-4 py-3 flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {item.quantity}x · {formatDurationMinutes(item.durationMinutes)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 shrink-0">
+                      {formatCurrency(item.lineTotal)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {(booking.totalAmount ?? 0) > 0 && (
+                <div className="px-4 py-3 bg-emerald-50/50 border-t border-gray-100 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-gray-700">
+                    Total
+                  </span>
+                  <span className="text-base font-bold text-emerald-700">
+                    {formatCurrency(booking.totalAmount)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
-          {booking.catatan && (
-            <div className="bg-amber-50 rounded-xl px-4 py-3 flex items-start gap-3 border border-amber-100">
-              <FileText size={15} className="text-amber-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-amber-500 font-medium mb-0.5">Catatan</p>
-                <p className="text-sm text-gray-700 whitespace-pre-line">{booking.catatan}</p>
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Pembayaran
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={`text-xs font-medium px-2.5 py-1 rounded-full ${paymentStatusBadgeClass(booking.paymentStatus)}`}
+              >
+                {formatPaymentStatus(booking.paymentStatus)}
+              </span>
+              {(booking.paymentAmount ?? booking.totalAmount ?? 0) > 0 && (
+                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-white border border-gray-200 text-gray-700">
+                  {formatCurrency(booking.paymentAmount ?? booking.totalAmount)}
+                </span>
+              )}
+            </div>
+            {booking.paidAt ? (
+              <InfoRow
+                icon={<CreditCard size={15} />}
+                label="Dibayar pada"
+                value={formatDateTimeIndo(booking.paidAt)}
+              />
+            ) : null}
+            {booking.paymentMethod ? (
+              <InfoRow
+                icon={<CreditCard size={15} />}
+                label="Metode"
+                value={booking.paymentMethod}
+              />
+            ) : null}
+            {booking.midtransOrderId ? (
+              <InfoRow
+                icon={<Hash size={15} />}
+                label="Order ID"
+                value={booking.midtransOrderId}
+                mono
+              />
+            ) : null}
+          </div>
+
+          {catatanTampil ? (
+            <div className="bg-amber-50 rounded-xl px-4 py-3 border border-amber-100">
+              <div className="flex items-start gap-3">
+                <FileText size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-amber-600 font-medium">
+                    Catatan
+                  </p>
+                  <p className="text-sm text-gray-700 whitespace-pre-line mt-1">
+                    {catatanTampil}
+                  </p>
+                </div>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {isHome && booking.visitAddress && (
+          {isHome && booking.visitAddress ? (
             <div className="bg-violet-50 rounded-xl px-4 py-3 border border-violet-100">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin size={14} className="text-violet-600 shrink-0" />
@@ -248,36 +441,104 @@ export default function DetailBookingModal({
                 </a>
               )}
             </div>
-          )}
+          ) : null}
 
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <User size={15} className="text-gray-400" />
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
-                Informasi Pemilik
-              </p>
-            </div>
-            <div className="border border-gray-100 rounded-xl px-4 py-3 space-y-2.5">
-              <p className="text-sm font-semibold text-gray-800">{booking.namaPemilik}</p>
-              <div className="flex items-start gap-2 text-xs text-gray-500">
-                <MapPin size={13} className="mt-0.5 shrink-0 text-gray-400" />
-                <span>{booking.alamatPemilik}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Mail size={13} className="shrink-0 text-gray-400" />
-                <span>{booking.emailPemilik}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Phone size={13} className="shrink-0 text-gray-400" />
-                <span>{booking.telpPemilik}</span>
-              </div>
-            </div>
+          <div className="border border-gray-100 rounded-xl px-4 py-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Kontak Pemilik
+            </p>
+            <InfoRow
+              icon={<MapPin size={15} />}
+              label="Alamat"
+              value={booking.alamatPemilik !== "-" ? booking.alamatPemilik : "—"}
+            />
+            <InfoRow
+              icon={<Mail size={15} />}
+              label="Email"
+              value={
+                contactLoading && email === "-"
+                  ? "Memuat..."
+                  : email !== "-"
+                    ? email
+                    : "—"
+              }
+            />
+            <InfoRow
+              icon={<Phone size={15} />}
+              label="Telepon"
+              value={
+                contactLoading && phone === "-"
+                  ? "Memuat..."
+                  : phone !== "-"
+                    ? phone
+                    : "—"
+              }
+            />
+            {booking.createdAt ? (
+              <InfoRow
+                icon={<Calendar size={15} />}
+                label="Dibuat"
+                value={formatDateTimeIndo(booking.createdAt)}
+              />
+            ) : null}
           </div>
         </div>
 
-        <div className="px-6 pb-6 pt-3 space-y-3">
+        <div className="px-6 pb-6 pt-3 space-y-3 border-t border-gray-100 shrink-0">
+          {booking.customerId || booking.doctorId ? (
+            <div
+              className={`grid gap-2 ${
+                booking.customerId && booking.doctorId
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1"
+              }`}
+            >
+              {booking.customerId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleChatCustomer()}
+                  disabled={chatCustomerLoading || chatDoctorLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-semibold hover:bg-emerald-100 transition-colors disabled:opacity-60"
+                >
+                  {chatCustomerLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <MessageCircle size={16} />
+                  )}
+                  <span className="truncate">
+                    Chat{" "}
+                    {booking.namaPemilik !== "-"
+                      ? booking.namaPemilik
+                      : "Customer"}
+                  </span>
+                </button>
+              ) : null}
+              {booking.doctorId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleChatDoctor()}
+                  disabled={chatCustomerLoading || chatDoctorLoading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-sky-200 bg-sky-50 text-sky-800 text-sm font-semibold hover:bg-sky-100 transition-colors disabled:opacity-60"
+                >
+                  {chatDoctorLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Stethoscope size={16} />
+                  )}
+                  <span className="truncate">
+                    Chat{" "}
+                    {booking.namaDokter?.trim()
+                      ? booking.namaDokter
+                      : "Dokter"}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           {canComplete && (
             <button
+              type="button"
               onClick={() => onUpdateStatus(booking.id, "Selesai")}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors"
             >
@@ -289,22 +550,25 @@ export default function DetailBookingModal({
           {canRescheduleOrCancel && (
             <div className="grid grid-cols-2 gap-3">
               <button
+                type="button"
                 onClick={() => onReschedule(booking.id)}
                 className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Reschedule
               </button>
               <button
+                type="button"
                 onClick={() => onCancel(booking.id)}
                 className="py-3 rounded-xl border border-red-200 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
               >
-                Cancel
+                Batalkan
               </button>
             </div>
           )}
 
           {!canComplete && !canRescheduleOrCancel && (
             <button
+              type="button"
               onClick={onClose}
               className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
             >

@@ -12,13 +12,26 @@ export type BookingDisplayKind =
   | "selesai"
   | "dibatalkan";
 
+export interface BookingServiceItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  durationMinutes: number;
+}
+
 export type Booking = {
   id: string;
-  /** DB fields for mutations (optional on UI-only rows) */
+  /** DB fields for mutations */
   rawStatus?: string;
   paymentStatus?: string | null;
+  paymentAmount?: number | null;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+  midtransOrderId?: string | null;
   scheduledStartAt?: string;
   scheduledEndAt?: string;
+  createdAt?: string;
   customerId?: string;
   /** Label status detail (selaras petlink). */
   displayLabel?: string;
@@ -27,12 +40,12 @@ export type Booking = {
   visitLatitude?: number | null;
   visitLongitude?: number | null;
   checkedInAt?: string | null;
+  durationMinutes?: number;
   // Pasien
   namaPasien: string;
-  jenis: string;        // breed / ras
-  kategori: string;     // e.g. "Kucing", "Anjing", "Kelinci"
+  jenis: string;
+  kategori: string;
   usia: string;
-  beratKg: number;
   jenisKelamin: JenisKelamin;
   // Pemilik
   namaPemilik: string;
@@ -45,10 +58,14 @@ export type Booking = {
   tanggal: string;
   // Status
   status: BookingStatus;
-  //Dokter
+  // Dokter & layanan
+  doctorId?: string | null;
   namaDokter?: string | null;
   namaLayanan?: string[] | null;
+  layanan?: BookingServiceItem[];
   totalAmount?: number | null;
   catatan?: string | null;
+  /** Catatan customer tanpa baris alamat kunjungan. */
+  catatanCustomer?: string | null;
   channel?: string | null;
 };

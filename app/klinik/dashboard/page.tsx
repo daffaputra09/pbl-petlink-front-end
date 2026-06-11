@@ -1,123 +1,141 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useClinicSession } from "@/lib/auth/clinic-session";
 import Link from "next/link";
+import {
+  CalendarDays,
+  Clock,
+  Star,
+  TrendingUp,
+  Wallet,
+  Users,
+  HeartHandshake,
+  AlertCircle,
+} from "lucide-react";
+import StatCard from "@/components/keuangan/FinanceStatCard";
+import DashboardWeeklyChart, {
+  DashboardRevenueTrend,
+} from "@/components/dashboard/DashboardWeeklyChart";
+import DashboardStatusChart from "@/components/dashboard/DashboardStatusChart";
+import DashboardRecentBookings from "@/components/dashboard/DashboardRecentBookings";
+import DashboardQuickActions from "@/components/dashboard/DashboardQuickActions";
+import {
+  KlinikPageLayout,
+  KlinikPageAlert,
+  KlinikPageLoading,
+} from "@/components/klinik/KlinikPageLayout";
+import { useClinicDashboard } from "@/hooks/use-clinic-dashboard";
+import { formatRupiah } from "@/lib/keuangan/format";
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 11) return "Selamat pagi";
+  if (hour < 15) return "Selamat siang";
+  if (hour < 18) return "Selamat sore";
+  return "Selamat malam";
+}
 
 export default function DashboardPage() {
-  const { profile } = useClinicSession();
-  const [stats, setStats] = useState({
-    bookingToday: 0,
-    bookingWeek: 0,
-    balance: 0,
-    rating: 0,
-    reviews: 0,
-  });
-
-  useEffect(() => {
-    if (!profile) return;
-    const supabase = createClient();
-
-    async function load() {
-      const now = new Date();
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setDate(endOfDay.getDate() + 1);
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-
-      const { data: bookings } = await supabase
-        .from("bookings")
-        .select("scheduled_start_at")
-        .eq("clinic_id", profile!.id);
-
-      const list = bookings ?? [];
-      const bookingToday = list.filter((b) => {
-        const t = new Date(b.scheduled_start_at);
-        return t >= startOfDay && t < endOfDay;
-      }).length;
-      const bookingWeek = list.filter((b) => {
-        const t = new Date(b.scheduled_start_at);
-        return t >= weekAgo;
-      }).length;
-
-      const { data: clinic } = await supabase
-        .from("clinic_profiles")
-        .select("balance, average_rating, total_reviews")
-        .eq("id", profile!.id)
-        .single();
-
-      setStats({
-        bookingToday,
-        bookingWeek,
-        balance: Number(clinic?.balance ?? 0),
-        rating: Number(clinic?.average_rating ?? 0),
-        reviews: clinic?.total_reviews ?? 0,
-      });
-    }
-
-    load();
-  }, [profile]);
+  const { data, loading, error, clinicName } = useClinicDashboard();
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-1">
-        Dashboard Klinik
-      </h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Selamat datang, {profile?.name ?? "Klinik"}
-      </p>
+    <KlinikPageLayout
+      title={`${greeting()}, ${clinicName}`}
+      description="Ringkasan operasional klinik hari ini"
+      maxWidth="7xl"
+    >
+      {loading ? (
+        <KlinikPageLoading message="Memuat dashboard..." />
+      ) : error ? (
+        <KlinikPageAlert message={error} />
+      ) : data ? (
+        <>
+          {data.stats.pendingWithdrawals > 0 ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <AlertCircle size={18} className="shrink-0" />
+              <p>
+                {data.stats.pendingWithdrawals} permohonan penarikan menunggu
+                persetujuan admin.{" "}
+                <Link
+                  href="/klinik/keuangan/penarikan/riwayat"
+                  className="font-semibold underline"
+                >
+                  Lihat status
+                </Link>
+              </p>
+            </div>
+          ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl border p-5">
-          <p className="text-xs text-gray-400 uppercase">Booking hari ini</p>
-          <p className="text-3xl font-bold text-gray-800 mt-1">
-            {stats.bookingToday}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border p-5">
-          <p className="text-xs text-gray-400 uppercase">7 hari terakhir</p>
-          <p className="text-3xl font-bold text-gray-800 mt-1">
-            {stats.bookingWeek}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border p-5">
-          <p className="text-xs text-gray-400 uppercase">Saldo</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1">
-            Rp {stats.balance.toLocaleString("id-ID")}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border p-5">
-          <p className="text-xs text-gray-400 uppercase">Rating</p>
-          <p className="text-3xl font-bold text-gray-800 mt-1">
-            {stats.rating.toFixed(1)}
-          </p>
-          <p className="text-xs text-gray-400">{stats.reviews} ulasan</p>
-        </div>
-      </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Booking Hari Ini"
+              value={String(data.stats.bookingToday)}
+              icon={<CalendarDays size={18} />}
+              highlight
+            />
+            <StatCard
+              label="Booking Mendatang"
+              value={String(data.stats.bookingUpcoming)}
+              icon={<Clock size={18} />}
+            />
+            <StatCard
+              label="Saldo Tersedia"
+              value={formatRupiah(data.stats.balance)}
+              icon={<Wallet size={18} />}
+            />
+            <StatCard
+              label="Pendapatan Bulan Ini"
+              value={formatRupiah(data.stats.revenueMonth)}
+              icon={<TrendingUp size={18} />}
+            />
+          </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/klinik/booking"
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium"
-        >
-          Kelola Booking
-        </Link>
-        <Link
-          href="/klinik/layanan"
-          className="px-4 py-2 border border-gray-200 rounded-lg text-sm"
-        >
-          Layanan
-        </Link>
-        <Link
-          href="/klinik/dokter"
-          className="px-4 py-2 border border-gray-200 rounded-lg text-sm"
-        >
-          Dokter
-        </Link>
-      </div>
-    </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Pendapatan Hari Ini"
+              value={formatRupiah(data.stats.revenueToday)}
+              icon={<TrendingUp size={18} />}
+            />
+            <StatCard
+              label="Rating Klinik"
+              value={
+                data.stats.reviewCount > 0
+                  ? `${data.stats.rating.toFixed(1)} ★`
+                  : "—"
+              }
+              icon={<Star size={18} />}
+            />
+            <StatCard
+              label="Dokter Aktif"
+              value={String(data.stats.activeDoctors)}
+              icon={<Users size={18} />}
+            />
+            <StatCard
+              label="Layanan Aktif"
+              value={String(data.stats.activeServices)}
+              icon={<HeartHandshake size={18} />}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <div className="xl:col-span-2">
+              <DashboardWeeklyChart data={data.weekly} />
+            </div>
+            <DashboardStatusChart data={data.statusBreakdown} />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <DashboardRevenueTrend data={data.weekly} />
+            <DashboardRecentBookings bookings={data.recentBookings} />
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 mb-3">
+              Akses Cepat
+            </h2>
+            <DashboardQuickActions />
+          </div>
+        </>
+      ) : null}
+    </KlinikPageLayout>
   );
 }

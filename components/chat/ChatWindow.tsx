@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Message } from "@/types/chat";
 import { CheckCheck } from "lucide-react";
 import FullscreenImageViewer from "@/components/chat/FullscreenImageViewer";
+import ChatDateLabel from "@/components/chat/ChatDateLabel";
+import { isSameCalendarDay } from "@/lib/chat/datetime";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -135,18 +137,25 @@ export default function ChatWindow({
           </div>
         )}
 
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           const hasImage = Boolean(msg.imageUrl);
           const hasCaption = msg.content.trim().length > 0;
           const isSent = msg.isSent;
           const sentBg = "bg-[#1E6B4F] text-white";
           const recvBg = "bg-white text-gray-800 shadow-sm";
+          const prev = index > 0 ? messages[index - 1] : null;
+          const showDate =
+            msg.createdAt != null &&
+            (index === 0 ||
+              prev?.createdAt == null ||
+              !isSameCalendarDay(msg.createdAt, prev.createdAt));
 
           return (
-            <div
-              key={msg.id}
-              className={`flex ${isSent ? "justify-end" : "justify-start"}`}
-            >
+            <div key={msg.id} className="contents">
+              {showDate ? <ChatDateLabel date={msg.createdAt!} /> : null}
+              <div
+                className={`flex ${isSent ? "justify-end" : "justify-start"}`}
+              >
               {hasImage && hasCaption ? (
                 <div
                   className={`max-w-[65%] overflow-hidden text-sm leading-relaxed ${bubbleRadius(isSent)} ${isSent ? sentBg : recvBg}`}
@@ -229,6 +238,7 @@ export default function ChatWindow({
                   </div>
                 </div>
               )}
+              </div>
             </div>
           );
         })}

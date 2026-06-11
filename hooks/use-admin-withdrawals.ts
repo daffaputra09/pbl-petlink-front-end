@@ -59,7 +59,7 @@ export function useAdminWithdrawals(options: {
   const processRequest = useCallback(
     async (
       id: string,
-      action: "approve" | "reject" | "complete",
+      action: "approve" | "reject",
       rejectionReason?: string
     ) => {
       const supabase = createClient();

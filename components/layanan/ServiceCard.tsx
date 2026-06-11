@@ -1,116 +1,157 @@
 "use client";
 
-import Link from "next/link";
-import {Trash2,Plus,} from "lucide-react";
-import { Service } from "@/types/layanan";
+import {
+  BriefcaseMedical,
+  Clock,
+  Home,
+  Building2,
+  Pencil,
+  Power,
+} from "lucide-react";
+import type { ClinicService } from "@/types/layanan";
+import {
+  channelLabels,
+  formatDuration,
+  formatServicePrice,
+} from "@/lib/layanan/presentation";
 
 interface ServiceCardProps {
-  service: Service;
-  onDelete: (id: string | number) => void;
+  service: ClinicService;
+  onEdit: (service: ClinicService) => void;
+  onToggleActive: (id: string, isActive: boolean) => void;
 }
 
-function ServiceCard({ service, onDelete }: ServiceCardProps) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
-      
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={`${service.iconBg} w-10 h-10 rounded-xl flex items-center justify-center`}
-          >
-            {service.icon}
-          </div>
+export default function ServiceCard({
+  service,
+  onEdit,
+  onToggleActive,
+}: ServiceCardProps) {
+  const channels = channelLabels(service);
 
-          <div>
-            <h3 className="font-bold text-gray-800 text-base">
+  return (
+    <div
+      className={`bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow ${
+        service.isActive ? "border-gray-100" : "border-gray-200 opacity-75"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <BriefcaseMedical size={20} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900 truncate">
               {service.name}
             </h3>
-
-            <span
-              className={`text-[11px] font-bold tracking-wider ${service.categoryColor}`}
-            >
-              {service.category}
-            </span>
+            <p className="text-lg font-bold text-emerald-700 mt-0.5">
+              {formatServicePrice(service.price)}
+            </p>
           </div>
         </div>
-
-        <span className="text-sm font-semibold text-gray-500">
-          {service.price}
+        <span
+          className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-full shrink-0 ${
+            service.isActive
+              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+              : "bg-gray-100 text-gray-500 border border-gray-200"
+          }`}
+        >
+          {service.isActive ? "Aktif" : "Nonaktif"}
         </span>
       </div>
 
-      {/* Description */}
-      <p className="text-sm text-gray-500 leading-relaxed flex-1">
-        {service.description}
-      </p>
-
-      {/* Tags */}
-      {service.tags.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {service.tags.map((tag) => (
-            <span
-              key={tag}
-              className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                service.isPopular
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+      {service.description ? (
+        <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">
+          {service.description}
+        </p>
+      ) : (
+        <p className="text-sm text-gray-400 italic">Tanpa deskripsi</p>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-1">
-        <button className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+      <div className="flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 border border-gray-100">
+          <Clock size={12} />
+          {formatDuration(service.durationMinutes)}
+        </span>
+        {channels.map((ch) => (
+          <span
+            key={ch}
+            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${
+              ch === "Home Service"
+                ? "bg-violet-50 text-violet-700 border-violet-100"
+                : "bg-blue-50 text-blue-700 border-blue-100"
+            }`}
+          >
+            {ch === "Home Service" ? (
+              <Home size={12} />
+            ) : (
+              <Building2 size={12} />
+            )}
+            {ch}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+        <button
+          type="button"
+          onClick={() => onEdit(service)}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <Pencil size={14} />
           Edit
         </button>
-
         <button
-          onClick={() => onDelete(service.id)}
-          className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
-          aria-label="Hapus layanan"
+          type="button"
+          onClick={() =>
+            onToggleActive(service.id, !service.isActive)
+          }
+          className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+            service.isActive
+              ? "border-orange-200 text-orange-600 hover:bg-orange-50"
+              : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          }`}
+          title={service.isActive ? "Nonaktifkan" : "Aktifkan kembali"}
         >
-          <Trash2 className="w-4 h-4" />
+          <Power size={14} />
+          {service.isActive ? "Off" : "On"}
         </button>
       </div>
     </div>
   );
 }
 
-interface ServiceCardsProps {
-  data: Service[];
-  onDelete: (id: string | number) => void;
+interface ServiceGridProps {
+  services: ClinicService[];
+  onEdit: (service: ClinicService) => void;
+  onToggleActive: (id: string, isActive: boolean) => void;
+  emptyMessage?: string;
 }
 
-export default function ServiceCards({ data, onDelete }: ServiceCardsProps) {
+export function ServiceGrid({
+  services,
+  onEdit,
+  onToggleActive,
+  emptyMessage = "Belum ada layanan terdaftar.",
+}: ServiceGridProps) {
+  if (services.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-gray-400 border border-dashed border-gray-200 rounded-xl">
+        <BriefcaseMedical size={40} className="mb-3 opacity-40" />
+        <p className="text-sm text-center px-4">{emptyMessage}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {data.map((service) => (
+      {services.map((service) => (
         <ServiceCard
           key={service.id}
           service={service}
-          onDelete={onDelete}
+          onEdit={onEdit}
+          onToggleActive={onToggleActive}
         />
       ))}
-
-      {/* Add Custom Service Card */}
-      <Link href="/klinik/layanan/tambah">
-        <div className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-2 min-h-[220px] cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/30 transition-all group">
-          
-          <div className="w-10 h-10 rounded-full border-2 border-gray-300 group-hover:border-emerald-500 flex items-center justify-center transition-colors">
-            <Plus className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition-colors" />
-          </div>
-
-          <span className="text-sm text-gray-400 group-hover:text-emerald-600 font-medium transition-colors">
-            Add Custom Service
-          </span>
-        </div>
-      </Link>
     </div>
   );
 }

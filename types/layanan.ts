@@ -1,24 +1,29 @@
-import { ReactNode } from "react";
-
-export interface Service {
-  id: string | number;
+/** Selaras dengan tabel `services` (Supabase). */
+export interface ClinicService {
+  id: string;
   name: string;
-  category: string;
-  categoryColor: string;
-  price: string;
-  description: string;
-  tags: string[];
-  isPopular?: boolean;
-  icon: ReactNode;
-  iconBg: string;
+  description: string | null;
+  price: number;
+  durationMinutes: number;
+  isActive: boolean;
+  isClinicService: boolean;
+  isHomeService: boolean;
 }
 
-export interface Stat {
+export interface ServiceFormInput {
+  name: string;
+  description?: string;
+  price: number;
+  durationMinutes: number;
+  isClinicService: boolean;
+  isHomeService: boolean;
+  isActive: boolean;
+}
+
+export interface ServiceStatItem {
   label: string;
   value: string;
   badge: string;
-  badgeColor: string;
-  isLarge?: boolean;
-  icon: ReactNode;
-  iconBg: string;
+  badgeClass: string;
+  iconKey: "total" | "price" | "duration";
 }

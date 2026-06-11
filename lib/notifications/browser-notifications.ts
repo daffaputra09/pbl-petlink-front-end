@@ -1,3 +1,6 @@
+import type { TabType } from "@/types/chat";
+import { buildPesanUrl } from "@/lib/chat/pesan-url";
+
 export type NotificationPermissionState = NotificationPermission | "unsupported";
 
 export function getNotificationSupport(): NotificationPermissionState {
@@ -13,9 +16,13 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return result;
 }
 
-export function navigateToChatThread(threadId: string) {
-  const url = `/klinik/pesan?thread=${encodeURIComponent(threadId)}`;
-  window.location.assign(url);
+export function navigateToChatThread(threadId: string, tab?: TabType) {
+  window.location.assign(
+    buildPesanUrl({
+      threadId,
+      tab: tab ?? "Customers",
+    })
+  );
 }
 
 export function showChatBrowserNotification(options: {
@@ -23,6 +30,7 @@ export function showChatBrowserNotification(options: {
   body: string;
   threadId: string;
   tag?: string;
+  tab?: TabType;
 }) {
   if (getNotificationSupport() !== "granted") return;
 
@@ -35,7 +43,7 @@ export function showChatBrowserNotification(options: {
 
     notification.onclick = () => {
       window.focus();
-      navigateToChatThread(options.threadId);
+      navigateToChatThread(options.threadId, options.tab);
       notification.close();
     };
   } catch {

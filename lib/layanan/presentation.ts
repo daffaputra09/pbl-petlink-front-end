@@ -1,93 +1,102 @@
-import {
-  BriefcaseMedical,
-  CalendarCheck2,
-  Microscope,
-  Scissors,
-  Stethoscope,
-  Syringe,
-  TrendingUp,
-} from "lucide-react";
-import { createElement } from "react";
-import type { ClinicServiceRow } from "@/hooks/use-clinic-services";
-import type { Service, Stat } from "@/types/layanan";
+import type { ClinicService, ServiceStatItem } from "@/types/layanan";
 
-const ICON_PRESETS = [
-  { match: /vaksin|imun/i, icon: Syringe, color: "text-emerald-600", bg: "bg-emerald-50" },
-  { match: /operasi|bedah/i, icon: Stethoscope, color: "text-red-500", bg: "bg-red-50" },
-  { match: /groom/i, icon: Scissors, color: "text-orange-500", bg: "bg-orange-50" },
-  { match: /dental|gigi/i, icon: BriefcaseMedical, color: "text-blue-500", bg: "bg-blue-50" },
-  { match: /lab|diagnos/i, icon: Microscope, color: "text-purple-500", bg: "bg-purple-50" },
-];
-
-function formatRp(n: number) {
-  return `Rp. ${n.toLocaleString("id-ID")}`;
+export function formatServicePrice(value: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-export function clinicServiceToCard(row: ClinicServiceRow): Service {
-  const preset =
-    ICON_PRESETS.find((p) => p.match.test(row.name)) ?? ICON_PRESETS[0];
-  const Icon = preset.icon;
-  const tags: string[] = [];
-  if (row.isHomeService) tags.push("Home");
-  if (row.isClinicService) tags.push("Klinik");
-  if (!row.isActive) tags.push("Nonaktif");
-
-  return {
-    id: row.id,
-    name: row.name,
-    category: row.isClinicService ? "LAYANAN KLINIK" : "LAYANAN",
-    categoryColor: preset.color,
-    price: formatRp(row.price),
-    description: row.description ?? "",
-    tags,
-    icon: createElement(Icon, { className: `w-5 h-5 ${preset.color}` }),
-    iconBg: preset.bg,
-  };
+export function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} menit`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h} jam`;
+  return `${h} jam ${m} menit`;
 }
 
-export function buildServiceStats(services: ClinicServiceRow[]): Stat[] {
+export function channelLabels(service: ClinicService): string[] {
+  const labels: string[] = [];
+  if (service.isClinicService) labels.push("Klinik");
+  if (service.isHomeService) labels.push("Home Service");
+  return labels;
+}
+
+export function matchesServiceSearch(
+  service: ClinicService,
+  query: string
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const haystack = [
+    service.name,
+    service.description ?? "",
+    ...channelLabels(service),
+    formatServicePrice(service.price),
+    formatDuration(service.durationMinutes),
+    service.isActive ? "aktif" : "nonaktif",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(q);
+}
+
+export function sortServicesForDisplay(
+  services: ClinicService[],
+  filter: "Semua" | "Aktif" | "Nonaktif"
+): ClinicService[] {
+  const byName = [...services].sort((a, b) =>
+    a.name.localeCompare(b.name, "id")
+  );
+
+  if (filter !== "Semua") return byName;
+
+  return [
+    ...byName.filter((s) => s.isActive),
+    ...byName.filter((s) => !s.isActive),
+  ];
+}
+
+export function buildServiceStats(services: ClinicService[]): ServiceStatItem[] {
   const active = services.filter((s) => s.isActive).length;
-  const avg =
+  const clinicCount = services.filter((s) => s.isClinicService && s.isActive).length;
+  const homeCount = services.filter((s) => s.isHomeService && s.isActive).length;
+  const avgPrice =
     services.length > 0
-      ? services.reduce((a, s) => a + s.price, 0) / services.length
+      ? services.reduce((sum, s) => sum + s.price, 0) / services.length
+      : 0;
+  const avgDuration =
+    services.length > 0
+      ? Math.round(
+          services.reduce((sum, s) => sum + s.durationMinutes, 0) /
+            services.length
+        )
       : 0;
 
   return [
     {
-      label: "TOTAL LAYANAN",
+      label: "Total Layanan",
       value: String(services.length),
-      badge: `${active} Aktif`,
-      badgeColor: "bg-emerald-50 text-emerald-700",
-      icon: createElement(BriefcaseMedical, {
-        className: "w-5 h-5 text-emerald-600",
-      }),
-      iconBg: "bg-emerald-50",
+      badge: `${active} aktif`,
+      badgeClass: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+      iconKey: "total",
     },
     {
-      label: "RATA-RATA HARGA",
-      value: formatRp(Math.round(avg)),
-      badge: "Per layanan",
-      badgeColor: "bg-blue-50 text-blue-600",
-      isLarge: true,
-      icon: createElement(TrendingUp, {
-        className: "w-5 h-5 text-blue-500",
-      }),
-      iconBg: "bg-blue-50",
+      label: "Channel Aktif",
+      value: `${clinicCount} / ${homeCount}`,
+      badge: "Klinik · Home",
+      badgeClass: "bg-blue-50 text-blue-700 border border-blue-100",
+      iconKey: "duration",
     },
     {
-      label: "DURASI RATA-RATA",
-      value: services.length
-        ? `${Math.round(
-            services.reduce((a, s) => a + s.durationMinutes, 0) /
-              services.length
-          )} mnt`
-        : "—",
-      badge: "Estimasi",
-      badgeColor: "bg-orange-50 text-orange-600",
-      icon: createElement(CalendarCheck2, {
-        className: "w-5 h-5 text-orange-500",
-      }),
-      iconBg: "bg-orange-50",
+      label: "Rata-rata Harga",
+      value: services.length ? formatServicePrice(Math.round(avgPrice)) : "—",
+      badge: avgDuration ? `~${formatDuration(avgDuration)}` : "Estimasi",
+      badgeClass: "bg-violet-50 text-violet-700 border border-violet-100",
+      iconKey: "price",
     },
   ];
 }

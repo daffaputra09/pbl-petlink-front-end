@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useClinicSession } from "@/lib/auth/clinic-session";
 import { lastMessagePreview } from "@/lib/storage/chat-image";
+import { buildPesanUrl } from "@/lib/chat/pesan-url";
 import {
   claimMessageNotification,
   publishChatNotificationBus,
@@ -18,6 +19,7 @@ import {
   requestNotificationPermission,
   showChatBrowserNotification,
 } from "@/lib/notifications/browser-notifications";
+import type { TabType } from "@/types/chat";
 
 type MessageRow = {
   id: string;
@@ -67,8 +69,8 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
   permissionRef.current = permission;
 
   const navigateToThread = useCallback(
-    (threadId: string) => {
-      router.push(`/klinik/pesan?thread=${encodeURIComponent(threadId)}`);
+    (threadId: string, tab?: TabType) => {
+      router.push(buildPesanUrl({ threadId, tab: tab ?? "Customers" }));
     },
     [router]
   );
@@ -133,6 +135,18 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
         return;
       }
 
+      const peerId =
+        thread.user_1_id === profile.id
+          ? (thread.user_2_id as string)
+          : (thread.user_1_id as string);
+      const { data: peer } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", peerId)
+        .maybeSingle();
+      const chatTab: TabType =
+        peer?.role === "doctor" ? "Doctors" : "Customers";
+
       const isOpenThread =
         onChatPageRef.current && activeThreadRef.current === record.thread_id;
       if (isOpenThread) return;
@@ -158,6 +172,7 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
           body: preview,
           threadId: record.thread_id,
           tag: `chat-msg-${record.id}`,
+          tab: chatTab,
         });
         return;
       }
@@ -167,7 +182,7 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
           description: preview,
           action: {
             label: "Buka",
-            onClick: () => navigateToThread(record.thread_id),
+            onClick: () => navigateToThread(record.thread_id, chatTab),
           },
         });
       }

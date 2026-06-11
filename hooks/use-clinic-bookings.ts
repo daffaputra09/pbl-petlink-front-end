@@ -1,70 +1,178 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useClinicSession } from "@/lib/auth/clinic-session";
-import { fetchCustomerNamesById } from "@/lib/booking/fetch-customer-names";
-import { fetchPaymentStatusByBookingId } from "@/lib/booking/fetch-payment-status";
 import {
-  BOOKING_LIST_SELECT,
-  mapBookingRow,
-} from "@/lib/booking/mappers";
-import type { Booking } from "@/types/booking";
-export function useClinicBookings() {
+  BOOKINGS_PAGE_SIZE,
+  BOOKINGS_SEARCH_LIMIT,
+  fetchClinicBookingsPage,
+} from "@/lib/booking/fetch-clinic-bookings-page";
+import {
+  fetchBookingStats,
+  type BookingStats,
+} from "@/lib/booking/fetch-booking-stats";
+import { matchesBookingSearch } from "@/lib/booking/matches-search";
+import type { Booking, BookingStatus } from "@/types/booking";
+
+type StatusFilter = BookingStatus | "Semua";
+
+export interface UseClinicBookingsOptions {
+  /** Jika false, hanya mutasi — tidak fetch daftar (hemat untuk halaman lain). */
+  listEnabled?: boolean;
+  statusFilter?: StatusFilter;
+  dateFilter?: string;
+  search?: string;
+}
+
+const EMPTY_STATS: BookingStats = {
+  todayCount: 0,
+  upcoming: 0,
+  completed: 0,
+  revenue: 0,
+};
+
+export function useClinicBookings(options: UseClinicBookingsOptions = {}) {
+  const {
+    listEnabled = true,
+    statusFilter = "Semua",
+    dateFilter = "",
+    search = "",
+  } = options;
+
   const { profile } = useClinicSession();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(listEnabled);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<BookingStats>(EMPTY_STATS);
+  const [statsLoading, setStatsLoading] = useState(listEnabled);
+  const pageRef = useRef(0);
+  const fetchIdRef = useRef(0);
 
-  const refresh = useCallback(async () => {
-    if (!profile) return;
-    setLoading(true);
-    setError(null);
-    const supabase = createClient();
+  const trimmedSearch = search.trim();
+  const isSearchMode = trimmedSearch.length > 0;
 
+  const loadStats = useCallback(async () => {
+    if (!profile || !listEnabled) return;
+    setStatsLoading(true);
     try {
-      await supabase.rpc("sync_clinic_bookings_in_progress");
+      const supabase = createClient();
+      const next = await fetchBookingStats(supabase, profile.id);
+      setStats(next);
     } catch {
-      // Migration belum diterapkan — jangan gagalkan fetch.
+      // Stats opsional — jangan blokir halaman.
+    } finally {
+      setStatsLoading(false);
     }
+  }, [profile, listEnabled]);
 
-    const { data, error: fetchError } = await supabase
-      .from("bookings")
-      .select(BOOKING_LIST_SELECT)
-      .eq("clinic_id", profile.id)
-      .order("scheduled_start_at", { ascending: true });
+  const fetchList = useCallback(
+    async (reset: boolean) => {
+      if (!profile || !listEnabled) return;
 
-    if (fetchError) {
-      setError(fetchError.message);
-      setLoading(false);
-      return;
-    }
+      const fetchId = ++fetchIdRef.current;
+      if (reset) {
+        setLoading(true);
+        setError(null);
+        pageRef.current = 0;
+      } else {
+        setLoadingMore(true);
+      }
 
-    const rows = data ?? [];
-    const bookingIds = rows.map((r) => r.id as string);
-    const customerIds = rows.map((r) => r.customer_id as string);
+      const supabase = createClient();
 
-    const [paymentByBooking, nameByCustomer] = await Promise.all([
-      fetchPaymentStatusByBookingId(supabase, bookingIds, profile.id),
-      fetchCustomerNamesById(supabase, customerIds),
-    ]);
+      try {
+        try {
+          await supabase.rpc("sync_clinic_bookings_in_progress");
+        } catch {
+          // Migration belum diterapkan.
+        }
 
-    const mapped = rows.map((row) => {
-      const customerId = row.customer_id as string;
-      const b = mapBookingRow(row, {
-        ownerName: nameByCustomer[customerId],
-        paymentStatus: paymentByBooking[row.id as string] ?? null,
-      });
-      b.customerId = customerId;
-      return b;
-    });
-    setBookings(mapped);
-    setLoading(false);
-  }, [profile]);
+        if (isSearchMode) {
+          const { bookings: rows, totalCount: count } =
+            await fetchClinicBookingsPage(supabase, profile.id, {
+              from: 0,
+              to: 0,
+              statusFilter,
+              dateFilter: dateFilter || undefined,
+              searchLimit: BOOKINGS_SEARCH_LIMIT,
+            });
+
+          if (fetchId !== fetchIdRef.current) return;
+
+          const filtered = rows.filter((b) =>
+            matchesBookingSearch(b, trimmedSearch)
+          );
+          setBookings(filtered);
+          setTotalCount(filtered.length);
+          setHasMore(false);
+          pageRef.current = 0;
+          return;
+        }
+
+        const page = reset ? 0 : pageRef.current + 1;
+        const from = page * BOOKINGS_PAGE_SIZE;
+        const to = from + BOOKINGS_PAGE_SIZE - 1;
+
+        const { bookings: rows, totalCount: count } =
+          await fetchClinicBookingsPage(supabase, profile.id, {
+            from,
+            to,
+            statusFilter,
+            dateFilter: dateFilter || undefined,
+          });
+
+        if (fetchId !== fetchIdRef.current) return;
+
+        setTotalCount(count);
+        setBookings((prev) => (reset ? rows : [...prev, ...rows]));
+        pageRef.current = page;
+        setHasMore(from + rows.length < count);
+      } catch (e) {
+        if (fetchId !== fetchIdRef.current) return;
+        setError(e instanceof Error ? e.message : "Gagal memuat booking");
+        if (reset) setBookings([]);
+      } finally {
+        if (fetchId === fetchIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [
+      profile,
+      listEnabled,
+      statusFilter,
+      dateFilter,
+      isSearchMode,
+      trimmedSearch,
+    ]
+  );
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (!listEnabled) {
+      setLoading(false);
+      setStatsLoading(false);
+      return;
+    }
+    void fetchList(true);
+  }, [fetchList, listEnabled]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  const loadMore = useCallback(() => {
+    if (loading || loadingMore || !hasMore || isSearchMode) return;
+    void fetchList(false);
+  }, [loading, loadingMore, hasMore, isSearchMode, fetchList]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([fetchList(true), loadStats()]);
+  }, [fetchList, loadStats]);
 
   const updateStatus = async (id: string, status: string) => {
     const supabase = createClient();
@@ -82,7 +190,7 @@ export function useClinicBookings() {
       p_status: dbStatus,
     });
     if (rpcError) throw rpcError;
-    await refresh();
+    if (listEnabled) await refresh();
   };
 
   const reschedule = async (
@@ -100,7 +208,7 @@ export function useClinicBookings() {
       p_scheduled_end_at: end.toISOString(),
     });
     if (rpcError) throw rpcError;
-    await refresh();
+    if (listEnabled) await refresh();
   };
 
   const createManual = async (payload: {
@@ -129,16 +237,23 @@ export function useClinicBookings() {
       },
     });
     if (rpcError) throw rpcError;
-    await refresh();
+    if (listEnabled) await refresh();
   };
 
   return {
     bookings,
     loading,
+    loadingMore,
+    hasMore,
+    totalCount,
     error,
+    stats,
+    statsLoading,
+    loadMore,
     refresh,
     updateStatus,
     reschedule,
     createManual,
+    isSearchMode,
   };
 }

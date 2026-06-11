@@ -1,23 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import DoctorStatCards from "@/components/dokter/DoctorStatCard";
 import DoctorTable from "@/components/dokter/DoctorTable";
 import AddDoctorModal from "@/components/dokter/AddDoctorModal";
-import DoctorScheduleTable from "@/components/dokter/DoctorScheduleTable";
-import { Doctor } from "@/types/dokter";
+import {
+  KlinikPageLayout,
+  KlinikPageAlert,
+  KlinikPageLoading,
+  KlinikPrimaryButton,
+  KlinikSectionCard,
+} from "@/components/klinik/KlinikPageLayout";
+import type { Doctor, DoctorFormInput } from "@/types/dokter";
 import { useClinicDoctors } from "@/hooks/use-clinic-doctors";
 import { inviteDoctor, updateDoctorProfile } from "@/lib/actions/invite-doctor";
+import { confirmAction } from "@/lib/ui/confirm-store";
+import { notifyError, notifySuccess } from "@/lib/ui/notify";
 
 export default function DokterPage() {
-  const { doctors, loading, refresh } = useClinicDoctors();
+  const { doctors, loading, error, refresh } = useClinicDoctors();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editData, setEditData] = useState<Doctor | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const totalDokter = doctors.length;
-  const bertugas = doctors.filter((d) => d.status === "Bertugas").length;
-  const cuti = doctors.filter((d) => d.status === "Cuti").length;
-  const operasi = doctors.filter((d) => d.status === "Operasi").length;
+  const stats = useMemo(() => {
+    const aktif = doctors.filter((d) => d.isActive).length;
+    return {
+      total: doctors.length,
+      aktif,
+      nonaktif: doctors.length - aktif,
+    };
+  }, [doctors]);
 
   function handleAdd() {
     setEditData(null);
@@ -29,78 +44,109 @@ export default function DokterPage() {
     setModalOpen(true);
   }
 
-  async function handleSave(doctor: Doctor, password?: string) {
+  async function handleSave(input: DoctorFormInput) {
+    setSaving(true);
     try {
       if (editData) {
         await updateDoctorProfile({
-          doctorId: doctor.id,
-          name: doctor.nama,
-          specialization: doctor.spesialisasi[0],
-          bio: doctor.biografi,
-          isActive: doctor.status !== "Cuti",
+          doctorId: editData.id,
+          name: input.nama,
+          specialization: input.spesialisasi,
+          bio: input.bio,
+          licenseNumber: input.licenseNumber,
+          consultationFee: input.consultationFee,
+          isActive: input.isActive,
+          photoFile: input.photoFile,
         });
       } else {
-        if (!password) {
-          alert("Kata sandi wajib untuk dokter baru.");
+        if (!input.password) {
+          notifyError("Kata sandi wajib untuk dokter baru.");
           return;
         }
         await inviteDoctor({
-          email: doctor.email,
-          password,
-          name: doctor.nama,
-          specialization: doctor.spesialisasi[0] ?? "General Praktek",
-          bio: doctor.biografi,
-          isActive: doctor.status !== "Cuti",
+          email: input.email,
+          password: input.password,
+          name: input.nama,
+          specialization: input.spesialisasi,
+          bio: input.bio,
+          licenseNumber: input.licenseNumber,
+          consultationFee: input.consultationFee,
+          isActive: input.isActive,
+          photoFile: input.photoFile,
         });
       }
       setModalOpen(false);
       await refresh();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menyimpan dokter");
+      notifyError(e instanceof Error ? e.message : "Gagal menyimpan dokter");
+      throw e;
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Nonaktifkan dokter ini?")) return;
+    const ok = await confirmAction({
+      title: "Nonaktifkan dokter?",
+      message: "Dokter tidak akan muncul untuk booking (is_active = false).",
+      confirmLabel: "Nonaktifkan",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await updateDoctorProfile({
         doctorId: id,
         isActive: false,
       });
       await refresh();
+      notifySuccess("Dokter dinonaktifkan.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menonaktifkan");
+      notifyError(e instanceof Error ? e.message : "Gagal menonaktifkan");
     }
   }
 
   return (
-    <>
-      <DoctorStatCards
-        total={totalDokter}
-        bertugas={bertugas}
-        cuti={cuti}
-        operasi={operasi}
-      />
+    <KlinikPageLayout
+      title="Dokter"
+      description="Kelola profil dokter dan jadwal praktik klinik"
+      actions={
+        <KlinikPrimaryButton icon={<Plus size={16} />} onClick={handleAdd}>
+          Tambah Dokter
+        </KlinikPrimaryButton>
+      }
+    >
+      {error ? <KlinikPageAlert message={error} /> : null}
 
       {loading ? (
-        <p className="px-6 text-sm text-gray-500">Memuat dokter...</p>
+        <KlinikPageLoading message="Memuat dokter..." />
       ) : (
-        <DoctorTable
-          doctors={doctors}
-          onAdd={handleAdd}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
-      )}
+        <>
+          <DoctorStatCards
+            total={stats.total}
+            aktif={stats.aktif}
+            nonaktif={stats.nonaktif}
+          />
 
-      <DoctorScheduleTable doctors={doctors} jadwal={[]} />
+          <KlinikSectionCard
+            title="Daftar Dokter"
+            description={`${stats.total} dokter terdaftar`}
+          >
+            <DoctorTable
+              doctors={doctors}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          </KlinikSectionCard>
+        </>
+      )}
 
       <AddDoctorModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
         editData={editData}
+        saving={saving}
       />
-    </>
+    </KlinikPageLayout>
   );
 }

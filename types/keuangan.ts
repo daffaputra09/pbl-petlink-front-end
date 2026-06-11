@@ -1,4 +1,11 @@
-export type StatusPenarikan = "Berhasil" | "Diproses" | "Gagal";
+export type StatusPenarikan = "Menunggu" | "Berhasil" | "Ditolak";
+
+/** Nilai kolom `withdraw_requests.status` di Supabase. */
+export type WithdrawDbStatus =
+  | "pending"
+  | "approved"
+  | "completed"
+  | "rejected";
 
 export interface HistoryPenarikan {
   id: string;
@@ -9,10 +16,14 @@ export interface HistoryPenarikan {
   nomorRekening: string;
   atasNama: string;
   status: StatusPenarikan;
+  /** Status mentah dari database — untuk filter & logika. */
+  rawStatus: WithdrawDbStatus;
+  rejectionReason?: string | null;
+  createdAt?: string;
 }
 
 export interface DataGrafik {
-  label: string; // "Sen", "Sel", "Rab" etc
+  label: string;
   pendapatan: number;
 }
 
@@ -39,4 +50,6 @@ export interface Pendapatan {
   layanan: string;
   nominal: number;
   metode_pembayaran: string;
+  reference_type?: "booking" | "consultation";
+  reference_id?: string;
 }

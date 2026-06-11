@@ -6,6 +6,7 @@ export interface Message {
   id: string;
   content: string;
   time: string;
+  createdAt?: string;
   isSent: boolean;
   isRead?: boolean;
   type?: MessageType;
@@ -20,7 +21,9 @@ export interface Conversation {
   lastMessage: string;
   time: string;
   lastMessageAt?: string | null;
+  peerId?: string;
   peerRole?: string;
+  threadType?: string;
   unreadCount?: number;
   isOnline?: boolean;
   messages: Message[];

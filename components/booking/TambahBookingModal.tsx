@@ -7,6 +7,7 @@ import { useClinicServices } from "@/hooks/use-clinic-services";
 import { useClinicDoctors } from "@/hooks/use-clinic-doctors";
 import { lookupCustomerByEmail } from "@/lib/actions/lookup-customer";
 import { provisionCustomerWithPet } from "@/lib/actions/customer-provision";
+import { notifyError } from "@/lib/ui/notify";
 
 export type ManualBookingPayload = {
   customerId: string;
@@ -24,14 +25,28 @@ type Props = {
   onSubmit: (payload: ManualBookingPayload) => Promise<void>;
 };
 
-type FormState = Omit<Booking, "id">;
+type FormState = {
+  namaPasien: string;
+  jenis: string;
+  kategori: string;
+  usia: string;
+  jenisKelamin: JenisKelamin;
+  namaPemilik: string;
+  alamatPemilik: string;
+  emailPemilik: string;
+  telpPemilik: string;
+  jamMulai: string;
+  jamSelesai: string;
+  tanggal: string;
+  status: Booking["status"];
+  catatan?: string;
+};
 
 const INITIAL_FORM: FormState = {
   namaPasien: "",
   jenis: "",
   kategori: "",
   usia: "",
-  beratKg: 0,
   jenisKelamin: "Jantan",
   namaPemilik: "",
   alamatPemilik: "",
@@ -99,7 +114,7 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
     const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: name === "beratKg" ? parseFloat(value) || 0 : value,
+      [name]: value,
     }));
     setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
@@ -117,7 +132,6 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
     if (!form.jamSelesai) newErrors.jamSelesai = "Wajib diisi";
     else if (form.jamMulai && form.jamMulai >= form.jamSelesai)
       newErrors.jamSelesai = "Harus setelah jam mulai";
-    if (form.beratKg <= 0) newErrors.beratKg = "Harus lebih dari 0";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -178,7 +192,7 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
         jamSelesai: form.jamSelesai,
       });
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Gagal menyimpan");
+      notifyError(e instanceof Error ? e.message : "Gagal menyimpan");
     } finally {
       setSaving(false);
     }
@@ -250,19 +264,6 @@ export default function TambahBookingModal({ onClose, onSubmit }: Props) {
                   onChange={handleChange}
                   placeholder="Contoh: 2 Tahun"
                   className={inputClass(errors.usia)}
-                />
-              </Field>
-
-              <Field label="Berat (kg)" required error={errors.beratKg}>
-                <input
-                  type="number"
-                  name="beratKg"
-                  value={form.beratKg === 0 ? "" : form.beratKg}
-                  onChange={handleChange}
-                  min={0}
-                  step={0.1}
-                  placeholder="Contoh: 3.5"
-                  className={inputClass(errors.beratKg)}
                 />
               </Field>
 
