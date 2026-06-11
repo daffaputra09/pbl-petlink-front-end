@@ -19,6 +19,10 @@ import {
   requestNotificationPermission,
   showChatBrowserNotification,
 } from "@/lib/notifications/browser-notifications";
+import {
+  fetchParticipantThreadIds,
+  subscribeParticipantMessageInserts,
+} from "@/lib/chat/realtime-thread-filter";
 import type { TabType } from "@/types/chat";
 
 type MessageRow = {
@@ -55,6 +59,9 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
   const router = useRouter();
   const onChatPage = pathname?.startsWith("/klinik/pesan") ?? false;
 
+  const [participantThreadIds, setParticipantThreadIds] = useState<string[]>(
+    []
+  );
   const [unreadCount, setUnreadCount] = useState(0);
   const [permission, setPermission] = useState<
     NotificationPermission | "unsupported" | "default"
@@ -78,9 +85,15 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
   const refreshUnreadCount = useCallback(async () => {
     if (!profile) {
       setUnreadCount(0);
+      setParticipantThreadIds([]);
       return;
     }
-    const count = await fetchTotalUnread(profile.id);
+    const supabase = createClient();
+    const [count, threadIds] = await Promise.all([
+      fetchTotalUnread(profile.id),
+      fetchParticipantThreadIds(supabase, profile.id),
+    ]);
+    setParticipantThreadIds(threadIds);
     setUnreadCount(count);
     publishChatNotificationBus({ type: "unread-sync", count });
   }, [profile]);
@@ -201,24 +214,22 @@ export function useGlobalChatNotifications(activeThreadId: string | null) {
   }, [onChatPage, activeThreadId, refreshUnreadCount]);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || participantThreadIds.length === 0) return;
 
     const supabase = createClient();
-    const channel = supabase
-      .channel(`clinic-chat-notify-${profile.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        (payload) => {
-          void handleIncomingMessage(payload.new as MessageRow);
-        }
-      )
-      .subscribe();
+    const channel = subscribeParticipantMessageInserts(
+      supabase,
+      `clinic-chat-notify-${profile.id}`,
+      participantThreadIds,
+      (payload) => {
+        void handleIncomingMessage(payload.new as MessageRow);
+      }
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [profile, handleIncomingMessage]);
+  }, [profile, participantThreadIds, handleIncomingMessage]);
 
   return {
     unreadCount,

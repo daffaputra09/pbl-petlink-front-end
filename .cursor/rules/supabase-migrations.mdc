@@ -1,0 +1,16 @@
+---
+description: Database schema changes go through pbl-petlink-back-end CLI, not MCP
+globs: 
+alwaysApply: true
+---
+
+# Supabase migrations
+
+Schema / RLS changes for PetLink:
+
+1. Add SQL under **`pbl-petlink-back-end/supabase/migrations/`**
+2. Run **`npm run db:push`** from `pbl-petlink-back-end`
+
+Do **not** use Supabase MCP `apply_migration` — it breaks migration history (`db push` / `db pull`).
+
+See `pbl-petlink-back-end/.cursor/rules/supabase-migrations.mdc` for full workflow.

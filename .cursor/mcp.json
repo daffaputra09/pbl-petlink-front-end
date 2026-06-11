@@ -1,0 +1,14 @@
+{
+  "registries": {
+    "@react-bits": "https://reactbits.dev/r/{name}.json"
+  },
+  "mcpServers": {
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
+    }
+  }
+}

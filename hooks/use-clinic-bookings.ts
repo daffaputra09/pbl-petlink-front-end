@@ -86,12 +86,6 @@ export function useClinicBookings(options: UseClinicBookingsOptions = {}) {
       const supabase = createClient();
 
       try {
-        try {
-          await supabase.rpc("sync_clinic_bookings_in_progress");
-        } catch {
-          // Migration belum diterapkan.
-        }
-
         if (isSearchMode) {
           const { bookings: rows, totalCount: count } =
             await fetchClinicBookingsPage(supabase, profile.id, {

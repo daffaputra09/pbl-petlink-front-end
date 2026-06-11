@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { parseAuthHash } from "@/lib/auth/parse-auth-hash";
 import type { AuthChangeEvent, EmailOtpType } from "@supabase/supabase-js";
 
 type AuthLinkFlow = "invite" | "recovery";
@@ -44,18 +45,8 @@ function parseQueryError(flow: AuthLinkFlow): string | null {
 
 function parseHashError(flow: AuthLinkFlow): string | null {
   if (typeof window === "undefined") return null;
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const error = params.get("error");
-  if (!error) return null;
-  const errorCode = params.get("error_code");
-  if (errorCode === "otp_expired") return flowExpiredMessage(flow);
-  const description = params.get("error_description")?.replace(/\+/g, " ");
-  return (
-    description ||
-    (flow === "recovery"
-      ? "Tautan reset tidak valid. Minta tautan baru."
-      : "Tautan undangan tidak valid. Minta klinik mengirim ulang.")
-  );
+  const parsed = parseAuthHash(window.location.hash, flow);
+  return parsed.kind === "error" ? parsed.message : null;
 }
 
 function parseHashTokens(): {

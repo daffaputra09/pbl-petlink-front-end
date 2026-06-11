@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useClinicSession } from "@/lib/auth/clinic-session";
 import {
@@ -11,6 +11,7 @@ import type { Conversation, Message, TabType } from "@/types/chat";
 import { findOrCreateClinicDoctorThread } from "@/lib/chat/clinic-doctor-chat";
 import { findOrCreateClinicCustomerThread } from "@/lib/chat/clinic-customer-chat";
 import { formatConversationListTime } from "@/lib/chat/datetime";
+import { subscribeParticipantMessageChanges } from "@/lib/chat/realtime-thread-filter";
 
 const THREAD_PAGE_SIZE = 20;
 const MESSAGE_PAGE_SIZE = 30;
@@ -114,6 +115,16 @@ export function useClinicChat(activeTab: TabType, selectedThreadId: string | nul
   }, [selectedThreadId]);
 
   const selectedId = selectedThreadId;
+
+  const participantThreadIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const tab of ["Customers", "Doctors"] as const) {
+      for (const conversation of conversations[tab]) {
+        ids.add(conversation.id);
+      }
+    }
+    return Array.from(ids);
+  }, [conversations]);
 
   const buildConversation = useCallback(
     (
@@ -524,7 +535,7 @@ export function useClinicChat(activeTab: TabType, selectedThreadId: string | nul
     if (!profile) return;
 
     const supabase = createClient();
-    const channel = supabase
+    const threadChannel = supabase
       .channel(`clinic-chat-list-${profile.id}`)
       .on(
         "postgres_changes",
@@ -536,22 +547,28 @@ export function useClinicChat(activeTab: TabType, selectedThreadId: string | nul
         { event: "UPDATE", schema: "public", table: "chat_threads" },
         (payload) => onThreadPayload(payload.new as ThreadRow)
       )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        (payload) => onMessagePayload(payload.new as MessageRow, "INSERT")
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "chat_messages" },
-        (payload) => onMessagePayload(payload.new as MessageRow, "UPDATE")
-      )
       .subscribe();
 
+    const messageChannel =
+      participantThreadIds.length > 0
+        ? subscribeParticipantMessageChanges(
+            supabase,
+            `clinic-chat-list-msgs-${profile.id}`,
+            participantThreadIds,
+            {
+              onInsert: (payload) =>
+                onMessagePayload(payload.new as MessageRow, "INSERT"),
+              onUpdate: (payload) =>
+                onMessagePayload(payload.new as MessageRow, "UPDATE"),
+            }
+          )
+        : null;
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(threadChannel);
+      if (messageChannel) supabase.removeChannel(messageChannel);
     };
-  }, [profile, onThreadPayload, onMessagePayload]);
+  }, [profile, participantThreadIds, onThreadPayload, onMessagePayload]);
 
   useEffect(() => {
     if (!selectedId || !profile) {
