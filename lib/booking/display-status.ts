@@ -1,4 +1,8 @@
 import type { BookingStatus } from "@/types/booking";
+import {
+  displayKindToSemantic,
+  statusBadgeClass,
+} from "@/lib/booking/status-theme";
 
 export type BookingDisplayKind =
   | "belumDibayar"
@@ -98,22 +102,7 @@ export function resolveBookingDisplayStatus(params: {
 export function displayStatusBadgeClass(
   kind: BookingDisplayKind
 ): string {
-  switch (kind) {
-    case "berlangsung":
-      return "bg-sky-50 text-sky-700 border border-sky-200";
-    case "menungguCheckIn":
-    case "belumDibayar":
-      return "bg-amber-50 text-amber-700 border border-amber-200";
-    case "pembayaranGagal":
-    case "dibatalkan":
-      return "bg-red-50 text-red-500 border border-red-200";
-    case "selesai":
-      return "bg-emerald-50 text-emerald-600 border border-emerald-200";
-    case "dikonfirmasi":
-    case "terjadwal":
-    default:
-      return "bg-blue-50 text-blue-600 border border-blue-200";
-  }
+  return statusBadgeClass(displayKindToSemantic(kind));
 }
 
 export function displayStatusToFilterLabel(

@@ -8,7 +8,9 @@ import {
   Clock,
   XCircle,
 } from "lucide-react";
+import TransferProofViewer from "@/components/keuangan/TransferProofViewer";
 import { formatRupiah } from "@/lib/keuangan/format";
+import { isViewableTransferProofUrl } from "@/lib/keuangan/transfer-proof-url";
 import type { HistoryPenarikan, StatusPenarikan } from "@/types/keuangan";
 
 interface WithdrawListProps {
@@ -95,6 +97,11 @@ export default function WithdrawList({
                   {item.rejectionReason}
                 </p>
               ) : null}
+              {item.status === "Berhasil" && isViewableTransferProofUrl(item.transferProofUrl) ? (
+                <div className="mt-2">
+                  <TransferProofViewer url={item.transferProofUrl} compact />
+                </div>
+              ) : null}
             </div>
           </div>
         ))
@@ -106,6 +113,7 @@ export default function WithdrawList({
               <th className="text-left px-5 py-3 font-medium">Rekening Tujuan</th>
               <th className="text-right px-5 py-3 font-medium">Jumlah</th>
               <th className="text-center px-5 py-3 font-medium">Status</th>
+              <th className="text-center px-5 py-3 font-medium">Bukti</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -131,6 +139,16 @@ export default function WithdrawList({
                 </td>
                 <td className="px-5 py-4 text-center">
                   <StatusBadge status={item.status} />
+                </td>
+                <td className="px-5 py-4 text-center">
+                  {item.status === "Berhasil" && isViewableTransferProofUrl(item.transferProofUrl) ? (
+                    <TransferProofViewer
+                      url={item.transferProofUrl}
+                      compact
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
                 </td>
               </tr>
             ))}

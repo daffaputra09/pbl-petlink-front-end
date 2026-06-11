@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Loader2, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import TransferProofViewer from "@/components/keuangan/TransferProofViewer";
+import { isViewableTransferProofUrl } from "@/lib/keuangan/transfer-proof-url";
 import { AdminPageSearch } from "@/components/layout/AdminPageSearch";
 import { useAdminWithdrawals } from "@/hooks/use-admin-withdrawals";
 import { formatRupiah, formatDateId } from "@/lib/admin/format";
@@ -87,7 +89,8 @@ export default function AdminRiwayatPenarikanPage() {
               <div className="col-span-2">Tanggal</div>
               <div className="col-span-3">Bank & Rekening</div>
               <div className="col-span-2">Jumlah</div>
-              <div className="col-span-2">Status</div>
+              <div className="col-span-1">Status</div>
+              <div className="col-span-1">Bukti</div>
             </div>
 
             <div className="space-y-3">
@@ -125,7 +128,14 @@ export default function AdminRiwayatPenarikanPage() {
                     <div className="md:col-span-2 font-semibold text-gray-900 mb-2 md:mb-0">
                       {formatRupiah(Number(w.amount))}
                     </div>
-                    <div className="md:col-span-2">{statusBadge(w.status)}</div>
+                    <div className="md:col-span-1 mb-2 md:mb-0">{statusBadge(w.status)}</div>
+                    <div className="md:col-span-1">
+                      {isViewableTransferProofUrl(w.transfer_proof_url) ? (
+                        <TransferProofViewer url={w.transfer_proof_url} compact />
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

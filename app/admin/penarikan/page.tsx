@@ -7,9 +7,13 @@ import {
   XCircle,
   Building2,
 } from "lucide-react";
+import ApproveWithdrawDialog from "@/components/admin/ApproveWithdrawDialog";
 import { AdminPageSearch } from "@/components/layout/AdminPageSearch";
-import { useAdminWithdrawals } from "@/hooks/use-admin-withdrawals";
+import { useAdminWithdrawals, type WithdrawRow } from "@/hooks/use-admin-withdrawals";
+import { useAdminSession } from "@/lib/auth/admin-session";
 import { formatRupiah, formatDateId } from "@/lib/admin/format";
+import { uploadWithdrawProof } from "@/lib/storage/upload-withdraw-proof";
+import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -25,15 +29,26 @@ export default function AdminPenarikanPage() {
     status: "pending",
     search,
   });
+  const { profile } = useAdminSession();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [approveItem, setApproveItem] = useState<WithdrawRow | null>(null);
 
-  async function handleApprove(id: string) {
-    setBusyId(id);
+  async function handleApproveWithProof(file: File) {
+    if (!approveItem || !profile) return;
+    setBusyId(approveItem.id);
     try {
-      await processRequest(id, "approve");
-      notifySuccess("Penarikan disetujui.");
+      const supabase = createClient();
+      const proofUrl = await uploadWithdrawProof(
+        supabase,
+        profile.id,
+        approveItem.id,
+        file
+      );
+      await processRequest(approveItem.id, "approve", { transferProofUrl: proofUrl });
+      setApproveItem(null);
+      notifySuccess("Penarikan disetujui dengan bukti transfer.");
     } catch (e) {
       notifyError(e instanceof Error ? e.message : "Gagal menyetujui");
     } finally {
@@ -45,7 +60,9 @@ export default function AdminPenarikanPage() {
     if (!rejectId || !rejectReason.trim()) return;
     setBusyId(rejectId);
     try {
-      await processRequest(rejectId, "reject", rejectReason.trim());
+      await processRequest(rejectId, "reject", {
+        rejectionReason: rejectReason.trim(),
+      });
       setRejectId(null);
       setRejectReason("");
       notifySuccess("Penarikan ditolak.");
@@ -132,14 +149,14 @@ export default function AdminPenarikanPage() {
                     <Button
                       className="bg-emerald-600 hover:bg-emerald-700"
                       disabled={busyId === w.id}
-                      onClick={() => handleApprove(w.id)}
+                      onClick={() => setApproveItem(w)}
                     >
                       {busyId === w.id ? (
                         <Loader2 size={16} className="animate-spin" />
                       ) : (
                         <CheckCircle2 size={16} className="mr-1" />
                       )}
-                      Setujui
+                      Konfirmasi
                     </Button>
                   </div>
                 </div>
@@ -147,6 +164,16 @@ export default function AdminPenarikanPage() {
             ))}
           </div>
         )}
+
+      <ApproveWithdrawDialog
+        item={approveItem}
+        open={!!approveItem}
+        onOpenChange={(open) => {
+          if (!open) setApproveItem(null);
+        }}
+        busy={!!approveItem && busyId === approveItem.id}
+        onConfirm={handleApproveWithProof}
+      />
 
       <Dialog open={!!rejectId} onOpenChange={() => setRejectId(null)}>
         <DialogContent>

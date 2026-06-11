@@ -10,17 +10,19 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import Link from "next/link";
 import {
   BriefcaseMedical,
   Users,
   Wallet,
+  Coins,
   Loader2,
   Clock,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
 import { useAdminDashboard } from "@/hooks/use-admin-dashboard";
-import { formatRupiah, formatRupiahCompact, formatDateId } from "@/lib/admin/format";
+import { formatRupiah, formatRupiahAxis, formatDateId } from "@/lib/admin/format";
 
 function activityIcon(kind: string) {
   if (kind.includes("pending")) return Clock;
@@ -66,29 +68,42 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 {
                   label: "Total Klinik",
                   value: stats?.total_clinics ?? 0,
                   sub: `+${stats?.clinics_this_month ?? 0} bulan ini`,
                   icon: BriefcaseMedical,
+                  raw: true,
+                  href: null,
                 },
                 {
                   label: "Total Pengguna",
                   value: stats?.total_users ?? 0,
                   sub: `+${stats?.users_this_month ?? 0} bulan ini`,
                   icon: Users,
+                  raw: true,
+                  href: null,
                 },
                 {
-                  label: "Total Pendapatan",
-                  value: formatRupiahCompact(Number(stats?.total_revenue ?? 0)),
+                  label: "Total GMV",
+                  value: formatRupiah(Number(stats?.total_revenue ?? 0)),
                   sub:
                     stats?.revenue_growth_percent != null
                       ? `${stats.revenue_growth_percent > 0 ? "+" : ""}${stats.revenue_growth_percent}% vs bulan lalu`
-                      : "Belum ada perbandingan",
+                      : "Volume transaksi customer",
                   icon: Wallet,
                   raw: false,
+                  href: null,
+                },
+                {
+                  label: "Pendapatan Platform",
+                  value: formatRupiah(Number(stats?.total_platform_fee ?? 0)),
+                  sub: `${formatRupiah(Number(stats?.platform_fee_this_month ?? 0))} bulan ini`,
+                  icon: Coins,
+                  raw: false,
+                  href: "/admin/pendapatan-platform",
                 },
               ].map((card) => (
                 <div
@@ -105,6 +120,14 @@ export default function AdminDashboardPage() {
                         : Number(card.value).toLocaleString("id-ID")}
                     </p>
                     <p className="text-xs text-emerald-700 mt-1">{card.sub}</p>
+                    {card.href ? (
+                      <Link
+                        href={card.href}
+                        className="text-xs font-semibold text-emerald-800 hover:underline mt-2 inline-block"
+                      >
+                        Lihat detail
+                      </Link>
+                    ) : null}
                   </div>
                   <div className="w-11 h-11 rounded-xl bg-[#0D6853]/10 flex items-center justify-center text-[#0D6853]">
                     <card.icon size={22} />
@@ -134,7 +157,7 @@ export default function AdminDashboardPage() {
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                       <YAxis
                         tick={{ fontSize: 11 }}
-                        tickFormatter={(v) => formatRupiahCompact(v)}
+                        tickFormatter={(v) => formatRupiahAxis(Number(v))}
                       />
                       <Tooltip
                         formatter={(v: number) => [formatRupiah(v), "Pendapatan"]}

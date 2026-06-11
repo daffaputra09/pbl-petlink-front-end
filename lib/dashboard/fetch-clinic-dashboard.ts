@@ -97,7 +97,7 @@ export async function fetchClinicDashboard(
       .from("bookings")
       .select(
         `
-        id, status, scheduled_start_at, channel, customer_id,
+        id, status, scheduled_start_at, scheduled_end_at, channel, customer_id,
         customer_pets ( name )
       `
       )
@@ -197,11 +197,12 @@ export async function fetchClinicDashboard(
       row.customer_pets as { name?: string } | { name?: string }[] | null
     );
     const scheduledAt = row.scheduled_start_at as string;
+    const scheduledEndAt = row.scheduled_end_at as string;
     const display = resolveBookingDisplayStatus({
       bookingStatus: row.status as string,
       channel: row.channel as string | null,
       scheduledStartAt: new Date(scheduledAt),
-      scheduledEndAt: new Date(scheduledAt),
+      scheduledEndAt: new Date(scheduledEndAt ?? scheduledAt),
     });
     return {
       id: row.id as string,
@@ -209,6 +210,7 @@ export async function fetchClinicDashboard(
       ownerName: nameByCustomer[row.customer_id as string] ?? "Customer",
       scheduledAt,
       statusLabel: display.label,
+      displayKind: display.kind,
       channel: (row.channel as string | null) ?? null,
     };
   });

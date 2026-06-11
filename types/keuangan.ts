@@ -19,6 +19,7 @@ export interface HistoryPenarikan {
   /** Status mentah dari database — untuk filter & logika. */
   rawStatus: WithdrawDbStatus;
   rejectionReason?: string | null;
+  transferProofUrl?: string | null;
   createdAt?: string;
 }
 
@@ -49,6 +50,8 @@ export interface Pendapatan {
   pasien_nama: string;
   layanan: string;
   nominal: number;
+  gross_amount?: number;
+  platform_fee?: number;
   metode_pembayaran: string;
   reference_type?: "booking" | "consultation";
   reference_id?: string;

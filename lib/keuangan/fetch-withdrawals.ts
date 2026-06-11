@@ -12,6 +12,7 @@ type WithdrawRow = {
   account_name: string;
   created_at: string;
   rejection_reason: string | null;
+  transfer_proof_url: string | null;
 };
 
 function toNumber(v: unknown): number {
@@ -40,6 +41,7 @@ function mapWithdrawRow(row: WithdrawRow): HistoryPenarikan {
     status: mapWithdrawStatus(row.status),
     rawStatus,
     rejectionReason: row.rejection_reason,
+    transferProofUrl: row.transfer_proof_url?.trim() || null,
     createdAt: row.created_at,
   };
 }
@@ -58,7 +60,7 @@ export async function fetchClinicWithdrawals(
   let query = supabase
     .from("withdraw_requests")
     .select(
-      "id, amount, status, bank_name, account_number, account_name, created_at, rejection_reason",
+      "id, amount, status, bank_name, account_number, account_name, created_at, rejection_reason, transfer_proof_url",
       { count: "exact" }
     )
     .eq("clinic_id", clinicId)

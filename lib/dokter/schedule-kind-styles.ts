@@ -1,6 +1,10 @@
 import type { DoctorScheduleKind } from "@/types/dokter";
 import type { LucideIcon } from "lucide-react";
 import { MessageCircle, Stethoscope } from "lucide-react";
+import {
+  dbStatusToSemantic,
+  statusBadgeClass,
+} from "@/lib/booking/status-theme";
 
 /** Selaras petlink `jadwal_doctor.dart` — Primary.s600 / Primary.s50 & biru konsultasi. */
 export const SCHEDULE_KIND_STYLES = {
@@ -86,24 +90,6 @@ export function scheduleStatusBadgeClass(
   kind: DoctorScheduleKind,
   status: string | null | undefined
 ): string {
-  const s = status ?? "";
-
-  if (s === "cancelled") {
-    return "bg-gray-50 text-gray-500 border border-gray-200";
-  }
-  if (s === "completed") {
-    return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-  }
-  if (s === "in_progress") {
-    return kind === "consultation"
-      ? "bg-[#E3F2FD] text-[#1565C0] border border-[#1565C0]/25"
-      : "bg-sky-50 text-sky-700 border border-sky-200";
-  }
-  if (s === "pending_payment" || s === "pending") {
-    return "bg-amber-50 text-amber-700 border border-amber-200";
-  }
-
-  return kind === "consultation"
-    ? "bg-[#E3F2FD] text-[#1565C0] border border-[#1565C0]/25"
-    : "bg-[#E8F5EF] text-[#1E6B4F] border border-[#1E6B4F]/25";
+  const bookingKind = kind === "consultation" ? "consultation" : "booking";
+  return statusBadgeClass(dbStatusToSemantic(bookingKind, status));
 }

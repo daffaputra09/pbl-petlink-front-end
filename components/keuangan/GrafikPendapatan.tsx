@@ -1,15 +1,10 @@
 "use client";
 
 import { DataGrafik } from "@/types/keuangan";
+import { formatRupiah } from "@/lib/money/format-rupiah";
 
 interface GrafikPendapatanProps {
   data: DataGrafik[];
-}
-
-function formatJuta(val: number) {
-  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}jt`;
-  if (val >= 1_000) return `${(val / 1_000).toFixed(0)}rb`;
-  return `${val}`;
 }
 
 export default function GrafikPendapatan({ data }: GrafikPendapatanProps) {
@@ -39,7 +34,7 @@ export default function GrafikPendapatan({ data }: GrafikPendapatanProps) {
             <div key={item.label} className="flex-1 flex flex-col items-center gap-1.5 group">
               {/* Tooltip */}
               <div className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold text-[#1E6B4F] whitespace-nowrap">
-                {formatJuta(item.pendapatan)}
+                {formatRupiah(item.pendapatan)}
               </div>
               {/* Bar */}
               <div className="w-full flex items-end" style={{ height: "100px" }}>

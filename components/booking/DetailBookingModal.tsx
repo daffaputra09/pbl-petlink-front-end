@@ -22,7 +22,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { Booking } from "@/types/booking";
-import { displayStatusBadgeClass } from "@/lib/booking/display-status";
+import BookingStatusBadge from "@/components/booking/BookingStatusBadge";
+import { displayKindToSemantic } from "@/lib/booking/status-theme";
 import {
   type BookingDbStatus,
   canClinicAssignDoctor,
@@ -148,9 +149,6 @@ export default function DetailBookingModal({
   }, [booking.customerId, booking.emailPemilik, booking.telpPemilik]);
 
   const displayLabel = booking.displayLabel ?? booking.status;
-  const badgeClass = displayStatusBadgeClass(
-    booking.displayKind ?? "terjadwal"
-  );
   const isHome = booking.channel === "home";
   const statusTransitions = getClinicStatusTransitions(booking);
   const selectedTransition = statusTransitions.find(
@@ -258,11 +256,10 @@ export default function DetailBookingModal({
           </button>
 
           <div className="flex flex-wrap items-center gap-2 pr-8">
-            <span
-              className={`text-xs font-medium px-2.5 py-1 rounded-full ${badgeClass}`}
-            >
-              {displayLabel}
-            </span>
+            <BookingStatusBadge
+              label={displayLabel}
+              semantic={displayKindToSemantic(booking.displayKind ?? "terjadwal")}
+            />
             <span
               className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                 isHome

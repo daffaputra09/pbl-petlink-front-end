@@ -17,6 +17,7 @@ export interface WithdrawRow {
   created_at: string;
   processed_at: string | null;
   processed_by: string | null;
+  transfer_proof_url: string | null;
 }
 
 export function useAdminWithdrawals(options: {
@@ -60,7 +61,10 @@ export function useAdminWithdrawals(options: {
     async (
       id: string,
       action: "approve" | "reject",
-      rejectionReason?: string
+      options?: {
+        rejectionReason?: string;
+        transferProofUrl?: string;
+      }
     ) => {
       const supabase = createClient();
       const { error: rpcError } = await supabase.rpc(
@@ -68,7 +72,8 @@ export function useAdminWithdrawals(options: {
         {
           p_id: id,
           p_action: action,
-          p_rejection_reason: rejectionReason ?? null,
+          p_rejection_reason: options?.rejectionReason ?? null,
+          p_transfer_proof_url: options?.transferProofUrl ?? null,
         }
       );
       if (rpcError) throw new Error(rpcError.message);

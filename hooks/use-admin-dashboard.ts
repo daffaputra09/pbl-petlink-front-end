@@ -16,6 +16,8 @@ export interface DashboardStats {
   revenue_this_month: number;
   revenue_prev_month: number;
   revenue_growth_percent: number | null;
+  total_platform_fee: number;
+  platform_fee_this_month: number;
   clinics_this_month: number;
   users_this_month: number;
   year: number;

@@ -74,11 +74,22 @@ export function useClinicFinance() {
 
       const { data: payments, error: paymentsError } = await supabase
         .from("payments")
-        .select("amount, status, paid_at, created_at")
+        .select(
+          "amount, platform_fee, clinic_net_amount, status, paid_at, created_at"
+        )
         .eq("clinic_id", profile.id)
         .eq("status", "paid");
 
       if (paymentsError) throw paymentsError;
+
+      const netAmount = (p: {
+        amount: unknown;
+        platform_fee?: unknown;
+        clinic_net_amount?: unknown;
+      }) => {
+        if (p.clinic_net_amount != null) return Number(p.clinic_net_amount);
+        return Number(p.amount ?? 0);
+      };
 
       const paid = payments ?? [];
       const todaySum = paid
@@ -86,13 +97,13 @@ export function useClinicFinance() {
           const t = new Date(p.paid_at ?? p.created_at);
           return t >= startOfDay;
         })
-        .reduce((s, p) => s + Number(p.amount), 0);
+        .reduce((s, p) => s + netAmount(p), 0);
       const monthSum = paid
         .filter((p) => {
           const t = new Date(p.paid_at ?? p.created_at);
           return t >= startOfMonth;
         })
-        .reduce((s, p) => s + Number(p.amount), 0);
+        .reduce((s, p) => s + netAmount(p), 0);
 
       setPendapatanHariIni(todaySum);
       setPendapatanBulanIni(monthSum);
@@ -110,7 +121,7 @@ export function useClinicFinance() {
             const t = new Date(p.paid_at ?? p.created_at);
             return t >= d && t < next;
           })
-          .reduce((s, p) => s + Number(p.amount), 0);
+          .reduce((s, p) => s + netAmount(p), 0);
         week.push({ label: dayLabels[d.getDay()], pendapatan: sum });
       }
       setGrafikMingguan(week);

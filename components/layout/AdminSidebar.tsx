@@ -9,6 +9,7 @@ import {
   PawPrint as PawIcon,
   Wallet,
   History,
+  Coins,
   Star,
   Settings,
   LogOut,
@@ -25,6 +26,11 @@ const menus = [
     name: "Riwayat Penarikan",
     icon: History,
     href: "/admin/penarikan/riwayat",
+  },
+  {
+    name: "Pendapatan Platform",
+    icon: Coins,
+    href: "/admin/pendapatan-platform",
   },
   { name: "Pengaturan", icon: Settings, href: "/admin/pengaturan" },
 ];

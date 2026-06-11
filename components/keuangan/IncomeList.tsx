@@ -9,6 +9,17 @@ import {
 } from "@/lib/keuangan/format";
 import type { Pendapatan } from "@/types/keuangan";
 
+function feeBreakdownText(item: Pendapatan): string | null {
+  if (
+    item.platform_fee == null ||
+    item.gross_amount == null ||
+    item.platform_fee <= 0
+  ) {
+    return null;
+  }
+  return `Dari ${formatRupiah(item.gross_amount)} · biaya platform ${formatRupiah(item.platform_fee)}`;
+}
+
 interface IncomeListProps {
   data: Pendapatan[];
   compact?: boolean;
@@ -34,7 +45,9 @@ export default function IncomeList({
   return (
     <div className={compact ? "divide-y divide-gray-50" : "overflow-x-auto"}>
       {compact ? (
-        data.map((item) => (
+        data.map((item) => {
+          const feeNote = feeBreakdownText(item);
+          return (
           <div
             key={item.id}
             className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50/80 transition-colors"
@@ -51,6 +64,11 @@ export default function IncomeList({
                   <p className="text-xs text-gray-500 truncate mt-0.5">
                     {item.layanan}
                   </p>
+                  {feeNote ? (
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {feeNote}
+                    </p>
+                  ) : null}
                 </div>
                 <p className="text-sm font-bold text-emerald-600 shrink-0">
                   {formatRupiah(item.nominal)}
@@ -66,7 +84,8 @@ export default function IncomeList({
               </div>
             </div>
           </div>
-        ))
+          );
+        })
       ) : (
         <table className="w-full text-sm">
           <thead>
@@ -79,7 +98,9 @@ export default function IncomeList({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {data.map((item) => (
+            {data.map((item) => {
+              const feeNote = feeBreakdownText(item);
+              return (
               <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-5 py-4">
                   <p className="text-gray-800 font-medium">
@@ -109,9 +130,15 @@ export default function IncomeList({
                   <span className="font-semibold text-emerald-600">
                     {formatRupiah(item.nominal)}
                   </span>
+                  {feeNote ? (
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {feeNote}
+                    </p>
+                  ) : null}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}

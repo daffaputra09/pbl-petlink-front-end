@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { ArrowRight, Calendar, Clock, Home, Stethoscope } from "lucide-react";
 import type { DashboardRecentBooking } from "@/types/dashboard";
+import BookingStatusBadge from "@/components/booking/BookingStatusBadge";
 import { channelLabel, formatDateTimeIndo } from "@/lib/booking/format";
+import { displayKindToSemantic } from "@/lib/booking/status-theme";
 import { KlinikSectionCard } from "@/components/klinik/KlinikPageLayout";
 
 type Props = {
@@ -55,9 +57,11 @@ export default function DashboardRecentBookings({ bookings }: Props) {
                         {b.ownerName} · {channelLabel(b.channel)}
                       </p>
                     </div>
-                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-[#E8F5EF] text-[#1E6B4F] shrink-0">
-                      {b.statusLabel}
-                    </span>
+                    <BookingStatusBadge
+                      label={b.statusLabel}
+                      semantic={displayKindToSemantic(b.displayKind ?? "terjadwal")}
+                      className="text-[10px] uppercase tracking-wide shrink-0"
+                    />
                   </div>
                   <p className="text-xs text-gray-400 mt-1.5 inline-flex items-center gap-1">
                     <Clock size={12} />

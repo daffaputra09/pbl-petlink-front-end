@@ -10,12 +10,15 @@ export interface DashboardStatusSlice {
   color: string;
 }
 
+import type { BookingDisplayKind } from "@/lib/booking/display-status";
+
 export interface DashboardRecentBooking {
   id: string;
   patientName: string;
   ownerName: string;
   scheduledAt: string;
   statusLabel: string;
+  displayKind?: BookingDisplayKind;
   channel: string | null;
 }
 

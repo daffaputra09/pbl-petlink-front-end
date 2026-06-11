@@ -9,7 +9,8 @@ import {
   Wrench,
 } from "lucide-react";
 import { Booking } from "@/types/booking";
-import { displayStatusBadgeClass } from "@/lib/booking/display-status";
+import BookingStatusBadge from "@/components/booking/BookingStatusBadge";
+import { displayKindToSemantic } from "@/lib/booking/status-theme";
 import {
   channelLabel,
   formatBookingRef,
@@ -33,9 +34,6 @@ function servicesSummary(booking: Booking): string {
 
 export default function BookingCard({ booking, onClick }: Props) {
   const label = booking.displayLabel ?? booking.status;
-  const statusClass = displayStatusBadgeClass(
-    booking.displayKind ?? "terjadwal"
-  );
   const isHome = booking.channel === "home";
   const paymentLabel = formatPaymentStatus(booking.paymentStatus);
   const paymentClass = paymentStatusBadgeClass(booking.paymentStatus);
@@ -64,11 +62,10 @@ export default function BookingCard({ booking, onClick }: Props) {
               channelLabel(booking.channel)
             )}
           </span>
-          <span
-            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClass}`}
-          >
-            {label}
-          </span>
+          <BookingStatusBadge
+            label={label}
+            semantic={displayKindToSemantic(booking.displayKind ?? "terjadwal")}
+          />
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs font-mono text-gray-400">

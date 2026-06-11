@@ -5,6 +5,8 @@ import type { Pendapatan } from "@/types/keuangan";
 type PaymentRow = {
   id: string;
   amount: number | string;
+  platform_fee: number | string | null;
+  clinic_net_amount: number | string | null;
   paid_at: string | null;
   created_at: string;
   reference_type: "booking" | "consultation";
@@ -143,12 +145,22 @@ function mapPaymentRow(
       ? bookingLabels[row.reference_id] ?? "Booking Layanan"
       : consultationLabels[row.reference_id] ?? "Konsultasi Online";
 
+  const gross = toNumber(row.amount);
+  const platformFee =
+    row.platform_fee != null ? toNumber(row.platform_fee) : undefined;
+  const net =
+    row.clinic_net_amount != null
+      ? toNumber(row.clinic_net_amount)
+      : gross;
+
   return {
     id: row.id,
     created_at: paidAt,
     pasien_nama: customerNames[row.customer_id] ?? "Customer",
     layanan,
-    nominal: toNumber(row.amount),
+    nominal: net,
+    gross_amount: platformFee != null ? gross : undefined,
+    platform_fee: platformFee,
     metode_pembayaran: formatPaymentMethod(
       row.payment_method,
       row.midtrans_payment_type
@@ -186,7 +198,7 @@ export async function fetchClinicIncome(
   let query = supabase
     .from("payments")
     .select(
-      "id, amount, paid_at, created_at, reference_type, reference_id, customer_id, payment_method, midtrans_payment_type",
+      "id, amount, platform_fee, clinic_net_amount, paid_at, created_at, reference_type, reference_id, customer_id, payment_method, midtrans_payment_type",
       { count: "exact" }
     )
     .eq("clinic_id", clinicId)

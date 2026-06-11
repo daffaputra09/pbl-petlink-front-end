@@ -11,13 +11,7 @@ export {
 } from "@/lib/keuangan/withdraw-status";
 export type { WithdrawFilterValue } from "@/lib/keuangan/withdraw-status";
 
-export function formatRupiah(val: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(val);
-}
+export { formatRupiah, formatRupiahCompact, formatRupiahAxis } from "@/lib/money/format-rupiah";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   qris: "QRIS",

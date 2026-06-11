@@ -13,14 +13,8 @@ import {
   YAxis,
 } from "recharts";
 import type { DashboardWeeklyPoint } from "@/types/dashboard";
-import { formatRupiah } from "@/lib/keuangan/format";
+import { formatRupiah, formatRupiahAxis } from "@/lib/money/format-rupiah";
 import { KlinikSectionCard } from "@/components/klinik/KlinikPageLayout";
-
-function formatCompact(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} jt`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)} rb`;
-  return String(value);
-}
 
 type Props = {
   data: DashboardWeeklyPoint[];
@@ -63,7 +57,7 @@ export default function DashboardWeeklyChart({ data }: Props) {
                 tick={{ fontSize: 11, fill: "#6B7280" }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => formatCompact(Number(v))}
+                tickFormatter={(v) => formatRupiahAxis(Number(v))}
               />
               <Tooltip
                 contentStyle={{
@@ -138,7 +132,7 @@ export function DashboardRevenueTrend({ data }: Props) {
                 tick={{ fontSize: 11, fill: "#6B7280" }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => formatCompact(Number(v))}
+                tickFormatter={(v) => formatRupiahAxis(Number(v))}
               />
               <Tooltip
                 contentStyle={{
