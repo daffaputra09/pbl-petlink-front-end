@@ -18,9 +18,17 @@ function isTerminalStatus(status: string | undefined): boolean {
   return status === "completed" || status === "cancelled";
 }
 
+function isBookingPaid(paymentStatus: string | null | undefined): boolean {
+  return paymentStatus === "paid";
+}
+
 function canConfirmFromPending(paymentStatus: string | null | undefined): boolean {
   if (!paymentStatus) return true;
-  return paymentStatus === "paid";
+  return isBookingPaid(paymentStatus);
+}
+
+function canCancelBooking(booking: Booking): boolean {
+  return !isBookingPaid(booking.paymentStatus);
 }
 
 /**
@@ -45,12 +53,14 @@ export function getClinicStatusTransitions(
           "Ubah ke terjadwal setelah pembayaran lunas atau booking manual.",
       });
     }
-    options.push({
-      value: "cancelled",
-      label: "Batalkan booking",
-      description: "Batalkan janji dan lepaskan slot dokter.",
-      destructive: true,
-    });
+    if (canCancelBooking(booking)) {
+      options.push({
+        value: "cancelled",
+        label: "Batalkan booking",
+        description: "Batalkan janji dan lepaskan slot dokter.",
+        destructive: true,
+      });
+    }
     return options;
   }
 
@@ -69,12 +79,14 @@ export function getClinicStatusTransitions(
       label: "Tandai selesai",
       description: "Kunjungan telah selesai.",
     });
-    options.push({
-      value: "cancelled",
-      label: "Batalkan booking",
-      description: "Batalkan janji dan lepaskan slot dokter.",
-      destructive: true,
-    });
+    if (canCancelBooking(booking)) {
+      options.push({
+        value: "cancelled",
+        label: "Batalkan booking",
+        description: "Batalkan janji dan lepaskan slot dokter.",
+        destructive: true,
+      });
+    }
     return options;
   }
 
